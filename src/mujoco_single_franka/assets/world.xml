@@ -1,0 +1,72 @@
+<mujoco>
+  <compiler angle="radian" meshdir="./mesh" texturedir="./texture" />
+
+  <visual>
+    <quality shadowsize="8192" offsamples="8" numslices="64" numstacks="64" />
+    <headlight active="1" />
+    <!-- 改：去除蓝色雾霾，换成极淡的中性灰，不干扰颜色感知 -->
+    <rgba haze="0.08 0.08 0.08 1" />
+  </visual>
+
+  <option timestep="0.001" integrator="Euler" iterations="50" solver="Newton"
+          impratio="5" noslip_iterations="5" tolerance="1e-8" cone="elliptic">
+    <flag actuation="enable" gravity="enable" warmstart="enable" />
+  </option>
+
+  <asset>
+    <!-- 天空：冷调深蓝灰渐变，与红色目标物形成色相互补对比 -->
+    <texture type="skybox" builtin="gradient"
+             rgb1="0.15 0.20 0.28"
+             rgb2="0.04 0.04 0.06"
+             width="512" height="512" />
+
+    <!-- 地面纹理：工业深灰棋盘，格子较小(texrepeat=6)提供空间线索 -->
+    <texture name="floor_tex" type="2d" builtin="checker"
+             rgb1="0.22 0.22 0.22"
+             rgb2="0.15 0.15 0.15"
+             width="512" height="512"
+             mark="cross" markrgb="0.30 0.30 0.30" />
+
+    <!-- 地面材质：极低反射，避免地面高光干扰目标轮廓 -->
+    <material name="floor_mat"
+              texture="floor_tex"
+              texrepeat="6 6"
+              texuniform="false"
+              reflectance="0.03"
+              specular="0.05"
+              shininess="0.02" />
+
+    <material name="plane_white" rgba="1 1 1 1" reflectance="0"/>
+  </asset>
+
+  <include file="panda.xml" />
+
+  <worldbody>
+    <body>
+      <geom type="box" size=".03 .03 .03" pos=".5 0 .03" condim="6" rgba="1 0 0 1"/>
+      <joint type="free" />
+    </body>
+
+    <camera name="extern" pos="1 1 1" quat="0.265 0.165 0.5 0.8" />
+
+    <!-- 灯1：弱补光，无阴影，消除死角暗区 -->
+    <light directional="true"
+           diffuse=".12 .12 .12" specular="0 0 0"
+           pos="0 1 5" dir="0 -1 -1" castshadow="false"/>
+
+    <!-- 灯2：主光源偏暖，照亮机械臂和操作物 -->
+    <light directional="false"
+           diffuse=".78 .74 .68" specular="0.22 0.22 0.22"
+           pos="0 -1 4" dir="0 0 -1" />
+
+    <!-- 灯3：冷调侧高光，增强金属臂立体感，不加漫反射避免过曝 -->
+    <light directional="true"
+           diffuse="0.04 0.06 0.10" specular=".45 .45 .45"
+           pos="0 3 3" dir="0 -3 -3" />
+
+    <geom name="floor" pos="0 0 0" group="1" size="0 0 .1"
+          type="plane" material="floor_mat" condim="3" />
+  </worldbody>
+
+  <equality />
+</mujoco>
