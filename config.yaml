@@ -1,0 +1,37 @@
+panthera:
+  rosbridge:
+    host: "localhost"
+    port: 9090
+
+  rates:
+    control_hz: 50.0
+    publish_hz: 10.0
+    watchdog_timeout_s: 0.5
+
+  ik_control:
+    kp: [30.0, 50.0, 60.0, 25.0, 15.0, 10.0]
+    kd: [ 3.0,  5.0,  6.0,  2.5,  1.5,  1.0]
+
+  safe_position:
+    joint_pos: [0.0, 0.5, 0.6, 0.0, 0.0, 0.0]
+    joint_vel: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+
+  twist_scale:
+    translation_m: 0.0005
+    rotation_rad:  0.003
+
+  joints:
+    names:
+      - joint_1
+      - joint_2
+      - joint_3
+      - joint_4
+      - joint_5
+      - joint_6
+
+  topics:
+    cmd:     "/joystick/cmd"
+    gripper: "/joystick/gripper"
+    reset:   "/joystick/reset"
+    joints:  "/robot/joint_states"
+    ee:      "/robot/end_effector"
