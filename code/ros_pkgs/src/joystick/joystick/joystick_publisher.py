@@ -118,9 +118,9 @@ class JoystickPublisher(Node):
         droll  = axis3 * self.rot_scale
         dpitch = axis4 * self.rot_scale
         if b1:
-            dyaw = -self.rot_scale
+            dyaw = float(-self.rot_scale)
         elif b2:
-            dyaw = self.rot_scale
+            dyaw = float(self.rot_scale)
         else:
             dyaw = 0.0
 
