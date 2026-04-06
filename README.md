@@ -212,8 +212,7 @@ topics:
 
 **启动：**
 ```bash
-cd code/panthera/joystick_control
-python main.py --config configs/pathera_right.yaml
+python code/panthera/joystick_control/main.py --config configs/pathera_right.yaml
 ```
 
 ---
@@ -248,8 +247,7 @@ pairs:
 
 **启动：**
 ```bash
-cd code/panthera/leader_follower
-python main.py --config configs/follower_leader.yaml
+python code/panthera/leader_follower/main.py --config configs/follower_leader.yaml
 ```
 
 ---
@@ -296,8 +294,7 @@ topics:
 
 **启动：**
 ```bash
-cd code/pico
-python main.py --config /path/to/pico_config.yaml
+python code/pico/main.py --config /path/to/pico_config.yaml
 ```
 
 **操作说明：**
