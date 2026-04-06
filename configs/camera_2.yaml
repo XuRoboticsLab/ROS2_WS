@@ -1,0 +1,12 @@
+serial_number: '134722070932'   # '' = first available device
+camera_name: camera_2             # topic namespace and TF prefix
+enable_depth: false             # publish depth stream
+publish_rate: 30.0              # Hz
+image_width: 640
+image_height: 480
+
+# The topic will be named as:
+# /{camera_name}/color/image_raw
+# /{camera_name}/color/camera_info
+# /{camera_name}/depth/image_raw
+# /{camera_name}/depth/camera_info

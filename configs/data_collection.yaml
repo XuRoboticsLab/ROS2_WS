@@ -1,0 +1,53 @@
+# =============================================================================
+# data_collector config.yaml – example configuration
+# =============================================================================
+
+recording:
+  # Recording (trigger) frequency in Hz.
+  # The node saves one snapshot per tick, aligned to the primary topic.
+  frequency: 15.0
+
+  # Root directory where recorded files will be written.
+  # Sub-folders per session can be added in the launch file if desired.
+  output_dir: ./data/test
+
+  # Size of the in-memory ring buffer for each topic.
+  # Larger values let the aligner look further back in time.
+  buffer_size: 100
+
+
+# =============================================================================
+# Topics to record
+# =============================================================================
+# Each entry requires:
+#   name      – used in the saved filename:  <timestamp_ns>_<name>.<ext>
+#   topic     – full ROS topic string
+#   msg_type  – '<package>/<MessageClass>'
+#   is_primary – (optional, default false) exactly ONE topic should be true.
+#                The primary topic's timestamp is used as the reference for
+#                aligning all other topics.  Typically set on the lowest-rate
+#                topic (e.g. robot joint state) so that faster topics (camera)
+#                have plenty of nearby messages to match.
+# =============================================================================
+
+topics:
+
+  - name: camera_1
+    topic: /camera_1/color/image_raw
+    msg_type: sensor_msgs/Image
+    is_primary: false
+
+  - name: camera_2
+    topic: /camera_2/color/image_raw
+    msg_type: sensor_msgs/Image
+    is_primary: true
+  
+  - name: follower_1
+    topic: /follower_1/joint_states
+    msg_type: sensor_msgs/JointState
+    is_primary: false
+
+  - name: follower_2
+    topic: /follower_2/joint_states
+    msg_type: sensor_msgs/JointState
+    is_primary: false

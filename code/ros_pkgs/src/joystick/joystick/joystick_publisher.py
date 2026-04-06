@@ -5,7 +5,7 @@ ROS2 Humble joystick publisher.
 Reads a gamepad via pygame and publishes control commands.
 
 Deps:
-  pip install pygame
+  pip install pygame pyyaml
 
 Topics published:
   /joystick/cmd  (geometry_msgs/Twist)  linear=translation, angular=rotation
@@ -25,13 +25,20 @@ Axis / button mapping:
   b10    RB               → gripper open
   b0     A                → reset
 
-Params (--ros-args -p key:=value):
-  device_id    : pygame joystick index  (default: 0)
-  publish_rate : Hz                     (default: 50.0)
-  trans_scale  : translation step size  (default: 0.02)
-  rot_scale    : rotation step size     (default: 0.1)
+Config path resolution (first match wins):
+  1. CLI flag:       --config /path/to/config.yaml
+  2. ROS parameter:  --ros-args -p config_path:=/path/to/config.yaml
+
+Config YAML example:
+  device_id: 0
+  publish_rate: 100.0
+  trans_scale: 1
+  rot_scale: 1
 """
 
+import sys
+import argparse
+import yaml
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
@@ -43,19 +50,21 @@ import pygame
 
 class JoystickPublisher(Node):
 
-    def __init__(self):
+    def __init__(self, cfg_data: dict):
         super().__init__('joystick_publisher')
 
-        # Declare and load parameters
-        self.declare_parameter('device_id',    0)
-        self.declare_parameter('publish_rate', 100.0)
-        self.declare_parameter('trans_scale',  1)
-        self.declare_parameter('rot_scale',    1)
+        def cfg(key, default):
+            return cfg_data.get(key, default)
 
-        self.device_id   = self.get_parameter('device_id').value
-        publish_rate     = self.get_parameter('publish_rate').value
-        self.trans_scale = self.get_parameter('trans_scale').value
-        self.rot_scale   = self.get_parameter('rot_scale').value
+        self.device_id   = int(cfg('device_id',    0))
+        publish_rate     = float(cfg('publish_rate', 100.0))
+        self.trans_scale = float(cfg('trans_scale',  1))
+        self.rot_scale   = float(cfg('rot_scale',    1))
+
+        topics = cfg('topics', {})
+        topic_cmd     = topics.get('cmd',     '/joystick/cmd')
+        topic_gripper = topics.get('gripper', '/joystick/gripper')
+        topic_reset   = topics.get('reset',   '/joystick/reset')
 
         qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
@@ -63,9 +72,9 @@ class JoystickPublisher(Node):
             depth=10,
         )
 
-        self.pub_cmd     = self.create_publisher(Twist, '/joystick/cmd',     qos)
-        self.pub_gripper = self.create_publisher(Int8,  '/joystick/gripper', qos)
-        self.pub_reset   = self.create_publisher(Bool,  '/joystick/reset',   qos)
+        self.pub_cmd     = self.create_publisher(Twist, topic_cmd,     qos)
+        self.pub_gripper = self.create_publisher(Int8,  topic_gripper, qos)
+        self.pub_reset   = self.create_publisher(Bool,  topic_reset,   qos)
 
         self._init_pygame()
 
@@ -160,8 +169,49 @@ class JoystickPublisher(Node):
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = JoystickPublisher()
+    parser = argparse.ArgumentParser(description='ROS2 Joystick Publisher')
+    parser.add_argument(
+        '--config', '-c',
+        default=None,
+        help='Path to config.yaml. '
+             'Falls back to the ROS parameter "config_path" if not given.',
+    )
+    # parse only our own args, leave the rest for rclpy
+    known, remaining = parser.parse_known_args(args=args)
+
+    rclpy.init(args=remaining)
+
+    # ── Resolve config path (CLI flag → ROS param → error) ────────────────
+    if known.config:
+        config_path = known.config
+    else:
+        tmp = rclpy.create_node('_config_reader')
+        tmp.declare_parameter('config_path', '')
+        config_path = tmp.get_parameter('config_path').get_parameter_value().string_value
+        tmp.destroy_node()
+
+    if not config_path:
+        print(
+            'ERROR: No config path provided. '
+            'Use --config /path/to/config.yaml or '
+            "set the 'config_path' ROS parameter via --ros-args -p config_path:=...",
+            file=sys.stderr,
+        )
+        rclpy.shutdown()
+        sys.exit(1)
+
+    # ── Load YAML inline ──────────────────────────────────────────────────
+    try:
+        with open(config_path, 'r') as f:
+            cfg_data = yaml.safe_load(f) or {}
+    except Exception as e:
+        print(f"ERROR loading config '{config_path}': {e}", file=sys.stderr)
+        rclpy.shutdown()
+        sys.exit(1)
+
+    node = JoystickPublisher(cfg_data)
+    node.get_logger().info(f'Loaded config from: {config_path}')
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

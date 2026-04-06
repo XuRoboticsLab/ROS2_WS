@@ -8,13 +8,12 @@ import argparse
 _parser = argparse.ArgumentParser(description="Panthera ROS Bridge")
 _parser.add_argument(
     "--config", "-c",
-    default=None,
+    required=True,
     metavar="PATH",
     help="config.yaml 路径",
 )
 _args = _parser.parse_args()
-if _args.config:
-    os.environ["PANTHERA_CONFIG"] = os.path.abspath(_args.config)
+os.environ["PANTHERA_CONFIG"] = os.path.abspath(_args.config)
 
 import time
 import threading

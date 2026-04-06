@@ -1,0 +1,9 @@
+device_id: 0        # pygame joystick index
+publish_rate: 100.0 # Hz
+trans_scale: 1      # translation step size
+rot_scale: 1        # rotation step size
+
+topics:
+  cmd:     /joystick/cmd      # geometry_msgs/Twist
+  gripper: /joystick/gripper  # std_msgs/Int8
+  reset:   /joystick/reset    # std_msgs/Bool

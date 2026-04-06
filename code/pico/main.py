@@ -11,13 +11,12 @@ import argparse
 _parser = argparse.ArgumentParser(description="Pico ROS Bridge")
 _parser.add_argument(
     "--config", "-c",
-    default=None,
+    required=True,
     metavar="PATH",
     help="config.yaml 路径",
 )
 _args = _parser.parse_args()
-if _args.config:
-    os.environ["PICO_CONFIG"] = os.path.abspath(_args.config)
+os.environ["PICO_CONFIG"] = os.path.abspath(_args.config)
 
 
 import time

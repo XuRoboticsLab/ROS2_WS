@@ -67,6 +67,7 @@ class DataCollectorNode(Node):
         self._cfg = config
         self._recording = False
         self._save_lock = threading.Lock()
+        self._snapshot_index = 0
 
         # Prepare output directory
         self._cfg.recording.output_dir.mkdir(parents=True, exist_ok=True)
@@ -147,8 +148,13 @@ class DataCollectorNode(Node):
     def _save_snapshot(self, ref_time: float):
         """
         For each topic, find the message nearest to ref_time and save it.
+        Each snapshot gets its own sub-folder named by a zero-padded index.
         Filename uses each message's own timestamp so alignment can be verified.
         """
+        self._snapshot_index += 1
+        snapshot_dir = self._cfg.recording.output_dir / f"{self._snapshot_index:06d}"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+
         saved_count = 0
         for tc in self._cfg.topics:
             buf = self._buffers.get(tc.topic)
@@ -170,7 +176,7 @@ class DataCollectorNode(Node):
 
             # Build path (without extension – serializer adds it)
             stem = f"{ts_ns}_{tc.name}"
-            path_stem = self._cfg.recording.output_dir / stem
+            path_stem = snapshot_dir / stem
 
             try:
                 final_path = save_msg(msg, path_stem)

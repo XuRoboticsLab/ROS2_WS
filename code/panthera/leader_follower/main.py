@@ -3,8 +3,7 @@
 #  main.py  —  双主双从（任意 N 对）遥操作 + ROS 发布
 #
 #  用法:
-#    python main.py                        # 使用默认 config.yaml
-#    python main.py --config /path/to/cfg  # 指定 config 路径
+#    python main.py --config /path/to/cfg
 # ─────────────────────────────────────────────
 
 # !! argparse 必须在所有本地 import 之前 !!
@@ -14,13 +13,12 @@ import os
 _parser = argparse.ArgumentParser(description="Leader-Follower ROS Bridge")
 _parser.add_argument(
     "--config", "-c",
-    default=None,
+    required=True,
     metavar="PATH",
-    help="config.yaml 路径（默认：本文件上一级目录的 config.yaml）",
+    help="config.yaml 路径",
 )
 _args = _parser.parse_args()
-if _args.config:
-    os.environ["LEADER_FOLLOWER_CONFIG"] = os.path.abspath(_args.config)
+os.environ["LEADER_FOLLOWER_CONFIG"] = os.path.abspath(_args.config)
 
 import time
 import threading

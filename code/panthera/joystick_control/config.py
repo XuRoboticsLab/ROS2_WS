@@ -1,17 +1,16 @@
 # ─────────────────────────────────────────────
-#  config.py  —  从根目录 config.yaml 读取配置
+#  config.py  —  读取配置
 # ─────────────────────────────────────────────
 
 import os
 import yaml
 
-_YAML_PATH = os.environ.get(
-    "PANTHERA_CONFIG",
-    os.path.join(os.path.dirname(__file__), "../..", "config.yaml")
-)
+_YAML_PATH = os.environ.get("PANTHERA_CONFIG")
+if not _YAML_PATH:
+    raise RuntimeError("未指定 config 路径，请通过 --config 传入 config.yaml 路径")
 
 with open(_YAML_PATH, "r") as f:
-    _cfg = yaml.safe_load(f)["panthera"]
+    _cfg = yaml.safe_load(f)
 
 MOTOR_CONFIG_PATH = str(_cfg["motot_config_path"])
 

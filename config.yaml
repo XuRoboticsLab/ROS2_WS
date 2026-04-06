@@ -5,7 +5,7 @@ panthera:
 
   rates:
     control_hz: 50.0
-    publish_hz: 10.0
+    publish_hz: 100.0
     watchdog_timeout_s: 0.5
 
   ik_control:
@@ -17,8 +17,11 @@ panthera:
     joint_vel: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
 
   twist_scale:
-    translation_m: 0.0005
+    translation_m: 0.005
     rotation_rad:  0.003
+    # "absolute":    target = init + delta  适合 XR 手柄（每帧发绝对偏移量）
+    # "incremental": target += delta        适合 joystick / keyboard（每帧发速度增量）
+    mode: "incremental"
 
   joints:
     names:
@@ -30,8 +33,42 @@ panthera:
       - joint_6
 
   topics:
-    cmd:     "/joystick/cmd"
-    gripper: "/joystick/gripper"
-    reset:   "/joystick/reset"
+    cmd:     "/joystick/right/cmd"
+    gripper: "/joystick/right/gripper"
+    reset:   "/joystick/right/reset"
     joints:  "/robot/joint_states"
     ee:      "/robot/end_effector"
+    
+
+
+xr_publisher:
+  rosbridge:
+    host: "localhost"
+    port: 9090
+
+  grip:
+    threshold: 0.5
+    double_tap_window_s: 0.4
+
+  scale:
+    translation_m: 1.0    # XR 位移 → Twist linear 缩放
+    rotation_rad:  1.0    # XR 旋转 → Twist angular 缩放
+    max_delta_pos_m: 0.3  # 单步最大位移，超出则忽略
+
+  # XR 坐标系 → 机械臂坐标系映射矩阵 (行向量 = 机械臂轴)
+  coord_mapping:
+    pos: [[0, 0, 1],   # 机械臂 X ← XR Z
+          [1, 0, 0],   # 机械臂 Y ← XR X
+          [0, 1, 0]]   # 机械臂 Z ← XR Y
+    rot: [[0, 0, 1],
+          [1, 0, 0],
+          [0, 1, 0]]
+
+  topics:
+    right_cmd:      "/joystick/right/cmd"
+    left_cmd:       "/joystick/left/cmd"
+    right_gripper:  "/joystick/right/gripper"
+    left_gripper:   "/joystick/left/gripper"
+    right_reset:    "/joystick/right/reset"
+    left_reset:     "/joystick/left/reset"
+    emergency:      "/joystick/emergency"
