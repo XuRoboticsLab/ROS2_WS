@@ -195,12 +195,20 @@ safe_position:
   joint_vel: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
 
 topics:
-  cmd:     "/joystick/right/cmd"
-  gripper: "/joystick/right/gripper"
-  reset:   "/joystick/right/reset"
-  joints:  "/robot/joint_states"
-  ee:      "/robot/end_effector"
+  subscribe:
+    cmd:     "/joystick/right/cmd"
+    gripper: "/joystick/right/gripper"
+    reset:   "/joystick/right/reset"
+  publish:
+    joints:  "/robot/joint_states"
+    ee:      "/robot/end_effector"
 ```
+
+**发布的 Topics：**
+| Topic | 类型 |
+|---|---|
+| `topics.publish.joints` | `sensor_msgs/JointState` |
+| `topics.publish.ee` | `geometry_msgs/PoseStamped` |
 
 **启动：**
 ```bash
@@ -227,9 +235,16 @@ pairs:
     leader:   "/path/to/Leader_1.yaml"    # Panthera SDK 电机配置
     follower: "/path/to/Follower_1.yaml"
     topics:
-      joint_states: "/follower_1/joint_states"
-      end_effector: "/follower_1/end_effector"
+      publish:
+        joint_states: "/follower_1/joint_states"
+        end_effector: "/follower_1/end_effector"
 ```
+
+**发布的 Topics：**
+| Topic | 类型 |
+|---|---|
+| `topics.publish.joint_states` | `sensor_msgs/JointState` |
+| `topics.publish.end_effector` | `geometry_msgs/PoseStamped` |
 
 **启动：**
 ```bash
@@ -261,14 +276,23 @@ scale:
   max_delta_pos_m: 0.05
 
 topics:
-  right_cmd:     "/pico/right/cmd"
-  left_cmd:      "/pico/left/cmd"
-  right_gripper: "/pico/right/gripper"
-  left_gripper:  "/pico/left/gripper"
-  right_reset:   "/pico/right/reset"
-  left_reset:    "/pico/left/reset"
-  emergency:     "/pico/emergency"
+  publish:
+    right_cmd:     "/pico/right/cmd"
+    left_cmd:      "/pico/left/cmd"
+    right_gripper: "/pico/right/gripper"
+    left_gripper:  "/pico/left/gripper"
+    right_reset:   "/pico/right/reset"
+    left_reset:    "/pico/left/reset"
+    emergency:     "/pico/emergency"
 ```
+
+**发布的 Topics：**
+| Topic | 类型 |
+|---|---|
+| `topics.publish.right_cmd` / `left_cmd` | `geometry_msgs/Twist` |
+| `topics.publish.right_gripper` / `left_gripper` | `std_msgs/Int8` |
+| `topics.publish.right_reset` / `left_reset` | `std_msgs/Bool` |
+| `topics.publish.emergency` | `std_msgs/Bool` |
 
 **启动：**
 ```bash
