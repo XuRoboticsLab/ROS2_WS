@@ -2,7 +2,20 @@
 # ─────────────────────────────────────────────
 #  main.py  —  入口：初始化 & 线程启动
 # ─────────────────────────────────────────────
- 
+import os
+import argparse
+
+_parser = argparse.ArgumentParser(description="Panthera ROS Bridge")
+_parser.add_argument(
+    "--config", "-c",
+    default=None,
+    metavar="PATH",
+    help="config.yaml 路径",
+)
+_args = _parser.parse_args()
+if _args.config:
+    os.environ["PANTHERA_CONFIG"] = os.path.abspath(_args.config)
+
 import time
 import threading
 import numpy as np
@@ -11,6 +24,7 @@ from Panthera_lib import Panthera
 import os
  
 from config import (
+    MOTOR_CONFIG_PATH,
     ROSBRIDGE_HOST, ROSBRIDGE_PORT,
     SAFE_JOINT_POS, SAFE_JOINT_VEL,
     KP, KD,
@@ -21,7 +35,7 @@ from control_loop import control_loop
 
 def init_robot() -> Panthera:
     print("[Init] 初始化机械臂...")
-    config_path = os.path.abspath("/home/xuroboticslab/ws/Panthera-HT_SDK/panthera_python/robot_param/Right.yaml")
+    config_path = os.path.abspath(MOTOR_CONFIG_PATH)
     robot = Panthera(config_path)
     robot.send_get_motor_state_cmd()
     robot.motor_send_cmd()

@@ -5,10 +5,15 @@
 import os
 import yaml
 
-_YAML_PATH = os.path.join(os.path.dirname(__file__), "../..", "config.yaml")
+_YAML_PATH = os.environ.get(
+    "PANTHERA_CONFIG",
+    os.path.join(os.path.dirname(__file__), "../..", "config.yaml")
+)
 
 with open(_YAML_PATH, "r") as f:
     _cfg = yaml.safe_load(f)["panthera"]
+
+MOTOR_CONFIG_PATH = str(_cfg["motot_config_path"])
 
 # ── ROS Bridge ────────────────────────────────
 ROSBRIDGE_HOST = _cfg["rosbridge"]["host"]
