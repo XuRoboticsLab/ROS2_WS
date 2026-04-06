@@ -1,0 +1,30 @@
+rosbridge:
+  host: "localhost"
+  port: 9090
+
+grip:
+  threshold: 0.5
+  double_tap_window_s: 0.4
+
+scale:
+  translation_m: 1.0    # XR 位移 → Twist linear 缩放
+  rotation_rad:  1.0    # XR 旋转 → Twist angular 缩放
+  max_delta_pos_m: 0.3  # 单步最大位移，超出则忽略
+
+# XR 坐标系 → 机械臂坐标系映射矩阵 (行向量 = 机械臂轴)
+coord_mapping:
+  pos: [[0, 0, 1],   # 机械臂 X ← XR Z
+        [1, 0, 0],   # 机械臂 Y ← XR X
+        [0, 1, 0]]   # 机械臂 Z ← XR Y
+  rot: [[0, 0, 1],
+        [1, 0, 0],
+        [0, 1, 0]]
+
+topics:
+  right_cmd:      "/joystick/right/cmd"
+  left_cmd:       "/joystick/left/cmd"
+  right_gripper:  "/joystick/right/gripper"
+  left_gripper:   "/joystick/left/gripper"
+  right_reset:    "/joystick/right/reset"
+  left_reset:     "/joystick/left/reset"
+  emergency:      "/joystick/emergency"
