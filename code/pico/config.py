@@ -31,10 +31,10 @@ XR_TO_ROBOT_POS = np.array(_cfg["coord_mapping"]["pos"], dtype=float)
 XR_TO_ROBOT_ROT = np.array(_cfg["coord_mapping"]["rot"], dtype=float)
 
 # ── Topics ────────────────────────────────────
-TOPIC_RIGHT_CMD     = _cfg["topics"]["right_cmd"]
-TOPIC_LEFT_CMD      = _cfg["topics"]["left_cmd"]
-TOPIC_RIGHT_GRIPPER = _cfg["topics"]["right_gripper"]
-TOPIC_LEFT_GRIPPER  = _cfg["topics"]["left_gripper"]
-TOPIC_RIGHT_RESET   = _cfg["topics"]["right_reset"]
-TOPIC_LEFT_RESET    = _cfg["topics"]["left_reset"]
-TOPIC_EMERGENCY     = _cfg["topics"]["emergency"]
+TOPIC_RIGHT_CMD     = _cfg["topics"]["publish"]["right_cmd"]
+TOPIC_LEFT_CMD      = _cfg["topics"]["publish"]["left_cmd"]
+TOPIC_RIGHT_GRIPPER = _cfg["topics"]["publish"]["right_gripper"]
+TOPIC_LEFT_GRIPPER  = _cfg["topics"]["publish"]["left_gripper"]
+TOPIC_RIGHT_RESET   = _cfg["topics"]["publish"]["right_reset"]
+TOPIC_LEFT_RESET    = _cfg["topics"]["publish"]["left_reset"]
+TOPIC_EMERGENCY     = _cfg["topics"]["publish"]["emergency"]

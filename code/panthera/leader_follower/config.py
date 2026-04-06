@@ -31,7 +31,7 @@ for p in _cfg["pairs"]:
         "name":     p["name"],
         "leader":   os.path.abspath(p["leader"]),
         "follower": os.path.abspath(p["follower"]),
-        "topics":   dict(p["topics"]),
+        "topics":   dict(p["topics"]["publish"]),
     })
 
 # ── 控制参数 ──────────────────────────────────

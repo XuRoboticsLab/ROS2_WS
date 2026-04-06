@@ -39,8 +39,8 @@ ROTATION_SCALE    = float(_cfg["twist_scale"]["rotation_rad"])
 JOINT_NAMES = list(_cfg["joints"]["names"])
 
 # ── Topics ────────────────────────────────────
-TOPIC_CMD     = _cfg["topics"]["cmd"]
-TOPIC_GRIPPER = _cfg["topics"]["gripper"]
-TOPIC_RESET   = _cfg["topics"]["reset"]
-TOPIC_JOINTS  = _cfg["topics"]["joints"]
-TOPIC_EE      = _cfg["topics"]["ee"]
+TOPIC_CMD     = _cfg["topics"]["subscribe"]["cmd"]
+TOPIC_GRIPPER = _cfg["topics"]["subscribe"]["gripper"]
+TOPIC_RESET   = _cfg["topics"]["subscribe"]["reset"]
+TOPIC_JOINTS  = _cfg["topics"]["publish"]["joints"]
+TOPIC_EE      = _cfg["topics"]["publish"]["ee"]

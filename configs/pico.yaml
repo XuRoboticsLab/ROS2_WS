@@ -21,10 +21,11 @@ coord_mapping:
         [0, 1, 0]]
 
 topics:
-  right_cmd:      "/joystick/right/cmd"
-  left_cmd:       "/joystick/left/cmd"
-  right_gripper:  "/joystick/right/gripper"
-  left_gripper:   "/joystick/left/gripper"
-  right_reset:    "/joystick/right/reset"
-  left_reset:     "/joystick/left/reset"
-  emergency:      "/joystick/emergency"
+  publish:
+    right_cmd:      "/joystick/right/cmd"
+    left_cmd:       "/joystick/left/cmd"
+    right_gripper:  "/joystick/right/gripper"
+    left_gripper:   "/joystick/left/gripper"
+    right_reset:    "/joystick/right/reset"
+    left_reset:     "/joystick/left/reset"
+    emergency:      "/joystick/emergency"

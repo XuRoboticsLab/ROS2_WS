@@ -30,9 +30,11 @@ joints:
     - joint_6
 
 topics:
-  cmd:     "/joystick/right/cmd"
-  gripper: "/joystick/right/gripper"
-  reset:   "/joystick/right/reset"
-  joints:  "/robot/joint_states"
-  ee:      "/robot/end_effector"
+  subscribe:
+    cmd:     "/joystick/right/cmd"
+    gripper: "/joystick/right/gripper"
+    reset:   "/joystick/right/reset"
+  publish:
+    joints:  "/robot/joint_states"
+    ee:      "/robot/end_effector"
     
