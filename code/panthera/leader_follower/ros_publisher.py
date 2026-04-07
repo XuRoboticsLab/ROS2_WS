@@ -43,7 +43,8 @@ class FollowerStatePublisher:
             self._cache[name] = None   # 尚无数据
         print(f"[ROS] 已注册 {len(PAIRS)} 对 Follower 发布器")
 
-    def update(self, pair_name: str, joint_pos: list, fk: dict):
+    def update(self, pair_name: str, joint_pos: list, joint_vel: list,
+               fk: dict, gripper):
         """由控制循环调用，更新某一对的最新状态"""
         if fk is None:
             return
@@ -51,6 +52,9 @@ class FollowerStatePublisher:
         with self._lock:
             self._cache[pair_name] = {
                 "joint_pos": list(joint_pos),
+                "joint_vel": list(joint_vel),
+                "grip_pos":  float(gripper.position),
+                "grip_vel":  float(gripper.velocity),
                 "fk_pos":    list(fk["position"]),
                 "fk_rot":    np.array(fk["rotation"], dtype=float),
                 "stamp": {
@@ -67,16 +71,21 @@ class FollowerStatePublisher:
         for name, data in snapshot.items():
             stamp     = data["stamp"]
             joint_pos = data["joint_pos"]
+            joint_vel = data["joint_vel"]
             fk_pos    = data["fk_pos"]
             fk_rot    = data["fk_rot"]
             q         = _rot_to_quat(fk_rot)
 
+            all_names = [f"joint_{i+1}" for i in range(len(joint_pos))] + ["gripper"]
+            all_pos   = joint_pos + [data["grip_pos"]]
+            all_vel   = joint_vel + [data["grip_vel"]]
+
             self._joint_pubs[name].publish(roslibpy.Message({
                 "header":   {"stamp": stamp, "frame_id": "base_link"},
-                "name":     [f"joint_{i+1}" for i in range(len(joint_pos))],
-                "position": joint_pos,
-                "velocity": [0.0] * len(joint_pos),
-                "effort":   [0.0] * len(joint_pos),
+                "name":     all_names,
+                "position": all_pos,
+                "velocity": all_vel,
+                "effort":   [0.0] * len(all_names),
             }))
 
             self._ee_pubs[name].publish(roslibpy.Message({

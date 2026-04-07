@@ -82,14 +82,18 @@ def publisher_thread(ros: roslibpy.Ros, state: SharedState,
         t0 = time.time()
 
         if ros.is_connected:
-            joint_pos, fk_pos, fk_rot, stamp = state.get_robot_state()
+            joint_pos, joint_vel, grip_pos, grip_vel, fk_pos, fk_rot, stamp = state.get_robot_state()
+
+            all_names = JOINT_NAMES + ["gripper"]
+            all_pos   = joint_pos + [grip_pos]
+            all_vel   = joint_vel + [grip_vel]
 
             joint_pub.publish(roslibpy.Message({
                 "header":   {"stamp": stamp, "frame_id": "base_link"},
-                "name":     JOINT_NAMES,
-                "position": joint_pos,
-                "velocity": [0.0] * 6,
-                "effort":   [0.0] * 6,
+                "name":     all_names,
+                "position": all_pos,
+                "velocity": all_vel,
+                "effort":   [0.0] * len(all_names),
             }))
 
             q = _rot_to_quat(fk_rot)

@@ -41,10 +41,13 @@ class SharedState:
         self.last_cmd_time = 0.0
 
         # 机器人当前状态（供发布线程读取）
-        self.joint_positions = [0.0] * 6
-        self.fk_position     = [0.0, 0.0, 0.0]
-        self.fk_rotation     = np.eye(3)
-        self.stamp           = {"sec": 0, "nanosec": 0}
+        self.joint_positions  = [0.0] * 6
+        self.joint_velocities = [0.0] * 6
+        self.gripper_position = 0.0
+        self.gripper_velocity = 0.0
+        self.fk_position      = [0.0, 0.0, 0.0]
+        self.fk_rotation      = np.eye(3)
+        self.stamp            = {"sec": 0, "nanosec": 0}
 
         # 上一次有效 IK 结果
         self.last_valid_joint_pos = [0.0] * 6
@@ -95,20 +98,27 @@ class SharedState:
             return (time.time() - self.last_cmd_time) < WATCHDOG_TIMEOUT
 
     # ── Robot state ────────────────────────────
-    def set_robot_state(self, joint_pos, fk_pos, fk_rot):
+    def set_robot_state(self, joint_pos, joint_vel, fk_pos, fk_rot,
+                        gripper_pos: float = 0.0, gripper_vel: float = 0.0):
         t_ns = time.time_ns()
         with self._lock:
-            self.joint_positions = list(joint_pos)
-            self.fk_position     = list(fk_pos)
-            self.fk_rotation     = fk_rot.copy()
-            self.stamp           = {
-                "secs":     t_ns // 1_000_000_000,
+            self.joint_positions  = list(joint_pos)
+            self.joint_velocities = list(joint_vel)
+            self.gripper_position = gripper_pos
+            self.gripper_velocity = gripper_vel
+            self.fk_position      = list(fk_pos)
+            self.fk_rotation      = fk_rot.copy()
+            self.stamp            = {
+                "secs":  t_ns // 1_000_000_000,
                 "nsecs": t_ns  % 1_000_000_000,
             }
 
     def get_robot_state(self):
         with self._lock:
             return (list(self.joint_positions),
+                    list(self.joint_velocities),
+                    self.gripper_position,
+                    self.gripper_velocity,
                     list(self.fk_position),
                     self.fk_rotation.copy(),
                     self.stamp.copy())

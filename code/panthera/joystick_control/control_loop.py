@@ -21,12 +21,16 @@ def _hold(robot, state: SharedState):
 
 
 def _update_state(robot, state: SharedState):
-    """读取 FK 并写入共享状态"""
-    fk = robot.forward_kinematics()
+    """读取 FK + 关节速度 + 夹爪状态并写入共享状态"""
+    fk      = robot.forward_kinematics()
+    gripper = robot.get_current_state_gripper()
     state.set_robot_state(
         robot.get_current_pos(),
+        robot.get_current_vel(),
         fk["position"],
         np.array(fk["rotation"], dtype=float),
+        gripper_pos=gripper.position,
+        gripper_vel=gripper.velocity,
     )
 
 

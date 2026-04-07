@@ -56,8 +56,8 @@ def control_loop(pairs: list[ArmPair],
 
         for pair in pairs:
             try:
-                joint_pos, fk = pair.step()
-                publisher.update(pair.name, joint_pos, fk)
+                joint_pos, joint_vel, fk, gripper = pair.step()
+                publisher.update(pair.name, joint_pos, joint_vel, fk, gripper)
             except Exception as e:
                 print(f"\n[Control] {pair.name} 控制异常: {e}")
 

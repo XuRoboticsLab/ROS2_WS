@@ -83,6 +83,8 @@ class ArmPair:
 
         # ── 读取 Follower 当前状态（供发布）──
         follower_joint_pos = follower.get_current_pos()
+        follower_joint_vel = follower.get_current_vel()
         follower_fk        = follower.forward_kinematics()
+        follower_grip      = follower.get_current_state_gripper()
 
-        return follower_joint_pos, follower_fk
+        return follower_joint_pos, follower_joint_vel, follower_fk, follower_grip
