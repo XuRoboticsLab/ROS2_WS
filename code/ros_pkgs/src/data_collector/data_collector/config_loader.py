@@ -46,6 +46,7 @@ class RecordingConfig:
     frequency: float           # Hz
     output_dir: Path
     buffer_size: int = 200
+    foot_pedal_topic: str = '/foot_pedal/press'
 
 
 @dataclass
@@ -71,6 +72,7 @@ def load_config(path: str | Path) -> CollectorConfig:
         frequency=float(rec_raw['frequency']),
         output_dir=Path(rec_raw.get('output_dir', './tmp/ros_data')),
         buffer_size=int(rec_raw.get('buffer_size', 200)),
+        foot_pedal_topic=str(rec_raw.get('foot_pedal_topic', '/foot_pedal/press')),
     )
 
     # ── topics section ─────────────────────────────────────────────────────────

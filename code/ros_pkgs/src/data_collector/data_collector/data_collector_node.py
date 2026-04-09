@@ -5,10 +5,13 @@ ROS2 node that:
   1. Reads config.yaml (topics, recording frequency, output dir).
   2. Dynamically subscribes to every configured topic using the correct
      message type imported at runtime.
-  3. On each timer tick (= 1 / recording_frequency), uses the primary
+  3. Listens on /foot_pedal/press (std_msgs/Empty):
+       - First press  → start recording
+       - Second press → stop recording and shut down
+  4. On each timer tick (= 1 / recording_frequency), uses the primary
      topic's latest message as the reference timestamp and saves the
      nearest message from every other topic to disk.
-  4. Files are named:  <timestamp_ns>_<name>.<ext>
+  5. Files are written under:  <output_dir>/<YYYYMMDD_HHMMSS>/<index>/<timestamp_ns>_<name>.<ext>
        Images  → .npy
        Others  → .json
 """
@@ -25,6 +28,7 @@ from rclpy.qos import (
     QoSProfile, QoSReliabilityPolicy,
     QoSHistoryPolicy, QoSDurabilityPolicy
 )
+from std_msgs.msg import Empty
 
 from .config_loader import load_config, CollectorConfig, TopicConfig
 from .msg_buffer import MsgBuffer, get_msg_stamp, ros_time_to_sec
@@ -68,11 +72,13 @@ class DataCollectorNode(Node):
         self._recording = False
         self._save_lock = threading.Lock()
         self._snapshot_index = 0
+        self._session_dir: Path | None = None
+        self._press_count = 0
 
-        # Prepare output directory
+        # Ensure base output directory exists
         self._cfg.recording.output_dir.mkdir(parents=True, exist_ok=True)
         self.get_logger().info(
-            f"Output directory: {self._cfg.recording.output_dir}"
+            f"Base output directory: {self._cfg.recording.output_dir}"
         )
 
         # Build a buffer and subscriber for each configured topic
@@ -81,7 +87,15 @@ class DataCollectorNode(Node):
         for tc in self._cfg.topics:
             self._setup_subscriber(tc)
 
-        # Timer at the recording frequency
+        # Foot-pedal topic subscriber
+        pedal_topic = self._cfg.recording.foot_pedal_topic
+        self.create_subscription(Empty, pedal_topic, self._on_pedal, 10)
+        self.get_logger().info(
+            f"Waiting for foot pedal on {pedal_topic}. "
+            "Press once to START, press again to STOP."
+        )
+
+        # Timer at the recording frequency (inactive until recording starts)
         period = 1.0 / self._cfg.recording.frequency
         self._timer = self.create_timer(period, self._on_timer)
 
@@ -91,6 +105,15 @@ class DataCollectorNode(Node):
             f"Primary topic: '{self._cfg.primary_topic.topic}'. "
             f"Watching {len(self._cfg.topics)} topic(s)."
         )
+
+    # ── foot-pedal callback ───────────────────────────────────────────────────
+
+    def _on_pedal(self, _msg: Empty):
+        self._press_count += 1
+        if self._press_count == 1:
+            self.start_recording()
+        elif self._press_count == 2:
+            self.stop_recording()
 
     # ── subscription setup ────────────────────────────────────────────────────
 
@@ -125,6 +148,9 @@ class DataCollectorNode(Node):
     # ── timer callback (recording tick) ──────────────────────────────────────
 
     def _on_timer(self):
+        if not self._recording:
+            return
+
         primary = self._cfg.primary_topic
         if primary is None:
             return
@@ -152,7 +178,7 @@ class DataCollectorNode(Node):
         Filename uses each message's own timestamp so alignment can be verified.
         """
         self._snapshot_index += 1
-        snapshot_dir = self._cfg.recording.output_dir / f"{self._snapshot_index:06d}"
+        snapshot_dir = self._session_dir / f"{self._snapshot_index:06d}"
         snapshot_dir.mkdir(parents=True, exist_ok=True)
 
         saved_count = 0
@@ -195,12 +221,22 @@ class DataCollectorNode(Node):
     # ── public control API ────────────────────────────────────────────────────
 
     def start_recording(self):
+        session_name = datetime.now().strftime('%Y%m%d_%H%M%S')
+        self._session_dir = self._cfg.recording.output_dir / session_name
+        self._session_dir.mkdir(parents=True, exist_ok=True)
+        self._snapshot_index = 0
         self._recording = True
-        self.get_logger().info("Recording STARTED.")
+        self.get_logger().info(
+            f"Recording STARTED → {self._session_dir}"
+        )
 
     def stop_recording(self):
         self._recording = False
-        self.get_logger().info("Recording STOPPED.")
+        self.get_logger().info(
+            f"Recording STOPPED. {self._snapshot_index} snapshots saved to "
+            f"{self._session_dir}"
+        )
+        rclpy.try_shutdown()
 
 
 # ── entrypoint ────────────────────────────────────────────────────────────────
@@ -226,7 +262,6 @@ def main(args=None):
         config_path = known.config
     else:
         # Try to get it from a ROS parameter after node creation
-        # We'll create a temporary node just to read the parameter
         tmp = rclpy.create_node('_config_reader')
         tmp.declare_parameter('config_path', '')
         config_path = tmp.get_parameter('config_path').get_parameter_value().string_value
