@@ -15,6 +15,11 @@ recording:
   # Larger values let the aligner look further back in time.
   buffer_size: 100
 
+  # Foot pedal topics
+  foot_pedal_topic: /foot_pedal/press    # start / stop recording
+  save_topic: /foot_pedal/save           # keep the session after verify
+  delete_topic: /foot_pedal/delete       # discard the session after verify
+
 
 # =============================================================================
 # Topics to record
@@ -115,3 +120,11 @@ verify:
 
   # Show plots and image playback after recording stops
   plot: true
+
+  # Gripper analysis (only runs when plot: true)
+  gripper:
+    joint_topics:
+      - follower_1_joint
+      - follower_2_joint
+    joint_name: gripper        # name of the gripper joint inside the JointState msg
+    transition_factor: 5.0     # jump threshold multiplier for transition detection

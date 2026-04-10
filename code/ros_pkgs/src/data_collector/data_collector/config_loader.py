@@ -47,6 +47,8 @@ class RecordingConfig:
     output_dir: Path
     buffer_size: int = 200
     foot_pedal_topic: str = '/foot_pedal/press'
+    save_topic: str = '/foot_pedal/save'
+    delete_topic: str = '/foot_pedal/delete'
 
 
 @dataclass
@@ -58,6 +60,10 @@ class VerifyConfig:
     joint_topics: list = None   # list of topic names; None → ['joint_states']
     ee_topics: list = None    # list of topic names; None → ['ee_pose']
     plot: bool = True
+    # Gripper analysis (only when plot=True)
+    gripper_joint_topics: list = None   # topic names containing gripper joint
+    gripper_joint_name: str = 'gripper'
+    gripper_transition_factor: float = 5.0
 
 
 @dataclass
@@ -92,6 +98,8 @@ def load_config(path: str | Path) -> CollectorConfig:
         output_dir=Path(rec_raw.get('output_dir', './tmp/ros_data')),
         buffer_size=int(rec_raw.get('buffer_size', 200)),
         foot_pedal_topic=str(rec_raw.get('foot_pedal_topic', '/foot_pedal/press')),
+        save_topic=str(rec_raw.get('save_topic', '/foot_pedal/save')),
+        delete_topic=str(rec_raw.get('delete_topic', '/foot_pedal/delete')),
     )
 
     # ── topics section ─────────────────────────────────────────────────────────
@@ -121,6 +129,7 @@ def load_config(path: str | Path) -> CollectorConfig:
 
     # ── verify section ─────────────────────────────────────────────────────────
     ver_raw = raw.get('verify', {})
+    g_raw = ver_raw.get('gripper', {})
     verify = VerifyConfig(
         enabled=bool(ver_raw.get('enabled', True)),
         primary=str(ver_raw.get('primary', 'joint_states')),
@@ -131,6 +140,10 @@ def load_config(path: str | Path) -> CollectorConfig:
         ee_topics=_parse_str_or_list(ver_raw.get('ee_topics',
                    ver_raw.get('ee_topic', 'ee_pose'))),
         plot=bool(ver_raw.get('plot', True)),
+        gripper_joint_topics=(_parse_str_or_list(g_raw['joint_topics'])
+                              if 'joint_topics' in g_raw else None),
+        gripper_joint_name=str(g_raw.get('joint_name', 'gripper')),
+        gripper_transition_factor=float(g_raw.get('transition_factor', 5.0)),
     )
 
     return CollectorConfig(recording=recording, topics=topics, verify=verify)

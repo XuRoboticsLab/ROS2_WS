@@ -89,12 +89,27 @@ class DataCollectorNode(Node):
         for tc in self._cfg.topics:
             self._setup_subscriber(tc)
 
-        # Foot-pedal topic subscriber
+        # Foot-pedal topic subscribers
         pedal_topic = self._cfg.recording.foot_pedal_topic
         self.create_subscription(Empty, pedal_topic, self._on_pedal, 10)
         self.get_logger().info(
             f"Waiting for foot pedal on {pedal_topic}. "
             "Press to START, press again to STOP. Repeats."
+        )
+
+        # Save / delete decision pedals (used after verify)
+        self._verify_event = threading.Event()
+        self._verify_keep: bool | None = None
+        self._verifying = False
+        self.create_subscription(
+            Empty, self._cfg.recording.save_topic, self._on_save_pedal, 10
+        )
+        self.create_subscription(
+            Empty, self._cfg.recording.delete_topic, self._on_delete_pedal, 10
+        )
+        self.get_logger().info(
+            f"Save pedal:   {self._cfg.recording.save_topic}\n"
+            f"Delete pedal: {self._cfg.recording.delete_topic}"
         )
 
         # Timer at the recording frequency (inactive until recording starts)
@@ -108,13 +123,28 @@ class DataCollectorNode(Node):
             f"Watching {len(self._cfg.topics)} topic(s)."
         )
 
-    # ── foot-pedal callback ───────────────────────────────────────────────────
+    # ── foot-pedal callbacks ──────────────────────────────────────────────────
 
     def _on_pedal(self, _msg: Empty):
+        if self._verifying:
+            self.get_logger().warn("Verify in progress, ignoring pedal press.")
+            return
         if not self._recording:
             self.start_recording()
         else:
             self.stop_recording()
+
+    def _on_save_pedal(self, _msg: Empty):
+        if not self._verifying:
+            return
+        self._verify_keep = True
+        self._verify_event.set()
+
+    def _on_delete_pedal(self, _msg: Empty):
+        if not self._verifying:
+            return
+        self._verify_keep = False
+        self._verify_event.set()
 
     # ── subscription setup ────────────────────────────────────────────────────
 
@@ -215,8 +245,10 @@ class DataCollectorNode(Node):
                 )
 
         if saved_count > 0:
-            self.get_logger().info(
-                f"[t={ref_time:.3f}] Saved {saved_count}/{len(self._cfg.topics)} topics."
+            print(
+                f"\r[t={ref_time:.3f}] Saved {saved_count}/{len(self._cfg.topics)} topics.",
+                end="",
+                flush=True
             )
 
     # ── public control API ────────────────────────────────────────────────────
@@ -233,10 +265,40 @@ class DataCollectorNode(Node):
 
     def stop_recording(self):
         self._recording = False
+        session_dir = self._session_dir
         self.get_logger().info(
             f"Recording STOPPED. {self._snapshot_index} snapshots saved to "
-            f"{self._session_dir}"
+            f"{session_dir}"
         )
+
+        if not self._cfg.verify.enabled:
+            return
+
+        self._verifying = True
+        self._verify_event.clear()
+        self._verify_keep = None
+
+        def _run_verify():
+            print("Verification starts.")
+            image_names = [
+                tc.name for tc in self._cfg.topics
+                if tc.msg_type == 'sensor_msgs/Image'
+            ]
+
+            def wait_for_decision():
+                self._verify_event.wait()
+                return self._verify_keep
+
+            run_verify_and_prompt(
+                session_dir,
+                self._cfg.verify,
+                image_topic_names=image_names or None,
+                wait_for_decision=wait_for_decision,
+            )
+            self._verifying = False
+            self.get_logger().info("Verify done. Ready for next recording.")
+
+        threading.Thread(target=_run_verify, daemon=True).start()
 
 
 # ── entrypoint ────────────────────────────────────────────────────────────────

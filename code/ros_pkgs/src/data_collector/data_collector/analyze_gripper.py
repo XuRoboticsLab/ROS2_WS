@@ -175,7 +175,7 @@ def _fill_col(axes_col, t, values, state_mean, state_trans, topic_name):
     ax_m2.set_xlabel("time (s)")
 
 
-def plot_all_grippers(results: list):
+def plot_all_grippers(results: list, block: bool = True):
     """
     results: [ (topic_name, ts, values, state_mean, state_trans), … ]
     Draws a single figure with 3 rows × N columns (one column per topic).
@@ -195,7 +195,7 @@ def plot_all_grippers(results: list):
         _fill_col(axes[:, col], t, values, state_mean, state_trans, topic_name)
 
     plt.tight_layout()
-    plt.show()
+    plt.show(block=block)
 
 
 # ── main ───────────────────────────────────────────────────────────────────────

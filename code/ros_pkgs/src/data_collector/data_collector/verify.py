@@ -24,6 +24,12 @@ try:
 except ImportError:
     HAS_PLOT = False
 
+try:
+    from .analyze_gripper import load_joint_topic, method_mean, method_transition, plot_all_grippers
+    HAS_GRIPPER = True
+except ImportError:
+    HAS_GRIPPER = False
+
 
 # ── filename pattern:  <timestamp_ns>_<name>.<ext> ────────────────────────────
 _FNAME_RE = re.compile(r'^(\d+)_(.+)\.(json|npy)$')
@@ -487,7 +493,8 @@ def plot_all(align_results: dict, fr_results: dict, traj_results: dict,
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run_verify_and_prompt(session_dir: Path, v,
-                          image_topic_names: list = None) -> bool:
+                          image_topic_names: list = None,
+                          wait_for_decision=None) -> bool:
     """
     Run quality checks on *session_dir*, optionally play image topics and plot,
     then ask the user whether to keep or delete the recording.
@@ -502,6 +509,10 @@ def run_verify_and_prompt(session_dir: Path, v,
         Topic names (the 'name' field, not the ROS topic) whose msg_type is
         sensor_msgs/Image. If provided and v.plot is True, they are played
         back as a video before the static analysis plots.
+    wait_for_decision : callable, optional
+        Called to obtain the keep/delete decision. Must block until the user
+        decides and return True (keep) or False (delete). When None, falls
+        back to keyboard input().
 
     Returns
     -------
@@ -536,29 +547,76 @@ def run_verify_and_prompt(session_dir: Path, v,
             play_image_topics(data, image_topic_names)
         plot_all(align, fr, traj, primary=v.primary)
 
+        if HAS_GRIPPER and v.gripper_joint_topics:
+            print("\n── Gripper Analysis ──")
+            gripper_results = []
+            for topic_name in v.gripper_joint_topics:
+                ts, values = load_joint_topic(
+                    session_dir, topic_name, v.gripper_joint_name
+                )
+                if ts is None:
+                    continue
+                state_mean  = method_mean(values)
+                state_trans = method_transition(values, v.gripper_transition_factor)
+                n_open_m1 = int(state_mean.sum())
+                n_open_m2 = int(state_trans.sum())
+                n_trans   = int(np.abs(np.diff(state_trans)).sum())
+                print(f"  {topic_name}: {len(ts)} frames  "
+                      f"min={values.min():.3f}  max={values.max():.3f}  "
+                      f"mean={values.mean():.3f}")
+                print(f"    Method 1: {n_open_m1} open / {len(ts)-n_open_m1} closed")
+                print(f"    Method 2: {n_open_m2} open / {len(ts)-n_open_m2} closed  "
+                      f"({n_trans} transitions)")
+                gripper_results.append(
+                    (topic_name, ts, values, state_mean, state_trans)
+                )
+            if gripper_results:
+                plot_all_grippers(gripper_results, block=False)
+
     print(f"\n{'═'*60}")
 
-    # ── Y/N prompt ────────────────────────────────────────────────────────────
-    while True:
-        try:
-            answer = input("  Keep this recording? [Y/n]: ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            answer = 'y'
-            print()
+    # ── Decision ──────────────────────────────────────────────────────────────
+    if wait_for_decision is not None:
+        print("  Press SAVE pedal to keep, DELETE pedal to discard.", flush=True)
+        if v.plot and HAS_PLOT:
+            # Pump the Tk event loop while waiting so windows stay responsive
+            import threading as _threading
+            _done = _threading.Event()
+            _result = [None]
 
-        if answer in ('', 'y', 'yes'):
-            print(f"  Recording saved → {session_dir}")
-            print(f"{'═'*60}\n")
-            if v.plot and HAS_PLOT:
-                plt.close('all')
-            return True
-        elif answer in ('n', 'no'):
-            print(f"  Deleting {session_dir} …")
-            shutil.rmtree(session_dir, ignore_errors=True)
-            print(f"  Deleted.")
-            print(f"{'═'*60}\n")
-            if v.plot and HAS_PLOT:
-                plt.close('all')
-            return False
+            def _bg():
+                _result[0] = wait_for_decision()
+                _done.set()
+
+            _threading.Thread(target=_bg, daemon=True).start()
+            while not _done.is_set():
+                plt.pause(0.1)
+            keep = _result[0]
         else:
-            print("  Please enter Y or N.")
+            keep = wait_for_decision()
+    else:
+        keep = None
+        while keep is None:
+            try:
+                answer = input("  Keep this recording? [Y/n]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                answer = 'y'
+                print()
+            if answer in ('', 'y', 'yes'):
+                keep = True
+            elif answer in ('n', 'no'):
+                keep = False
+            else:
+                print("  Please enter Y or N.")
+
+    if keep:
+        print(f"  Recording saved → {session_dir}")
+    else:
+        print(f"  Deleting {session_dir} …")
+        shutil.rmtree(session_dir, ignore_errors=True)
+        print(f"  Deleted.")
+
+    print(f"{'═'*60}\n")
+    if v.plot and HAS_PLOT:
+        plt.close('all')
+    return keep
