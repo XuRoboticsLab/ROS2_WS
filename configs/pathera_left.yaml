@@ -1,4 +1,4 @@
-motor_config_path: "/home/xuroboticslab/ws/Panthera-HT_SDK/panthera_python/robot_param/Right.yaml"
+motor_config_path: "/home/xuroboticslab/ws/Panthera-HT_SDK/panthera_python/robot_param/LEFT.yaml"
 rosbridge:
   host: "localhost"
   port: 9090
@@ -31,10 +31,10 @@ joints:
 
 topics:
   subscribe:
-    cmd:     "/joystick/right/cmd"
-    gripper: "/joystick/right/gripper"
-    reset:   "/joystick/right/reset"
+    cmd:     "/joystick/left/cmd"
+    gripper: "/joystick/left/gripper"
+    reset:   "/joystick/left/reset"
   publish:
-    joints:  "/right/joint_states"
+    joints:  "/left/joint_states"
     ee:      "/right/end_effector"
     

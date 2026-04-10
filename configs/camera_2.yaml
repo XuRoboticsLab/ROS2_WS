@@ -1,5 +1,5 @@
-serial_number: '134722070932'   # '' = first available device
-camera_name: camera_2             # topic namespace and TF prefix
+serial_number: '260322275556'   # '' = first available device
+camera_name: left             # topic namespace and TF prefix
 enable_depth: false             # publish depth stream
 publish_rate: 30.0              # Hz
 image_width: 640

@@ -4,6 +4,6 @@ trans_scale: 1      # translation step size
 rot_scale: 1        # rotation step size
 
 topics:
-  cmd:     /joystick/cmd      # geometry_msgs/Twist
-  gripper: /joystick/gripper  # std_msgs/Int8
-  reset:   /joystick/reset    # std_msgs/Bool
+  cmd:     /joystick/right/cmd      # geometry_msgs/Twist
+  gripper: /joystick/right/gripper  # std_msgs/Int8
+  reset:   /joystick/right/reset    # std_msgs/Bool

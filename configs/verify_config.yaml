@@ -1,0 +1,44 @@
+# =============================================================================
+# Standalone verification config
+# =============================================================================
+
+# Root data directory — the script will auto-pick the latest session folder
+data_dir: ./data/0409
+
+# Topic names (the 'name' field in data_collection.yaml) whose files are images
+# These will be played back as a video before the analysis plots
+image_topics:
+  - left
+  - right
+  - extern
+
+verify:
+  primary: left
+  alignment_warn_ms: 10
+  dropout_threshold: 3.0
+
+  plot: false                
+
+  joint_topics:
+    - follower_1_joint
+    - follower_2_joint
+  ee_topics:
+    - follower_1_ee
+    - follower_2_ee
+
+# =============================================================================
+# Gripper state analysis
+# =============================================================================
+
+gripper:
+  # Joint topic names (the 'name' field) that contain a gripper joint
+  joint_topics:
+    - follower_1_joint
+    - follower_2_joint
+
+  # Name of the gripper joint inside the name[] array of the joint state msg
+  gripper_joint_name: gripper
+
+  # Method 2: a position jump larger than (transition_factor × median jump)
+  # is treated as a gripper open/close transition event
+  transition_factor: 5.0
