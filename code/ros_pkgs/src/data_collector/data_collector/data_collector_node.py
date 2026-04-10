@@ -6,8 +6,10 @@ ROS2 node that:
   2. Dynamically subscribes to every configured topic using the correct
      message type imported at runtime.
   3. Listens on /foot_pedal/press (std_msgs/Empty):
-       - First press  → start recording
-       - Second press → stop recording and shut down
+       - Press to start recording
+       - Press again to stop recording
+       - Press again to start a new session in a new folder
+       - ... repeats indefinitely
   4. On each timer tick (= 1 / recording_frequency), uses the primary
      topic's latest message as the reference timestamp and saves the
      nearest message from every other topic to disk.
@@ -33,6 +35,7 @@ from std_msgs.msg import Empty
 from .config_loader import load_config, CollectorConfig, TopicConfig
 from .msg_buffer import MsgBuffer, get_msg_stamp, ros_time_to_sec
 from .utils import save_msg
+from .verify import run_verify_and_prompt
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -73,7 +76,6 @@ class DataCollectorNode(Node):
         self._save_lock = threading.Lock()
         self._snapshot_index = 0
         self._session_dir: Path | None = None
-        self._press_count = 0
 
         # Ensure base output directory exists
         self._cfg.recording.output_dir.mkdir(parents=True, exist_ok=True)
@@ -92,7 +94,7 @@ class DataCollectorNode(Node):
         self.create_subscription(Empty, pedal_topic, self._on_pedal, 10)
         self.get_logger().info(
             f"Waiting for foot pedal on {pedal_topic}. "
-            "Press once to START, press again to STOP."
+            "Press to START, press again to STOP. Repeats."
         )
 
         # Timer at the recording frequency (inactive until recording starts)
@@ -109,10 +111,9 @@ class DataCollectorNode(Node):
     # ── foot-pedal callback ───────────────────────────────────────────────────
 
     def _on_pedal(self, _msg: Empty):
-        self._press_count += 1
-        if self._press_count == 1:
+        if not self._recording:
             self.start_recording()
-        elif self._press_count == 2:
+        else:
             self.stop_recording()
 
     # ── subscription setup ────────────────────────────────────────────────────
@@ -236,7 +237,6 @@ class DataCollectorNode(Node):
             f"Recording STOPPED. {self._snapshot_index} snapshots saved to "
             f"{self._session_dir}"
         )
-        rclpy.try_shutdown()
 
 
 # ── entrypoint ────────────────────────────────────────────────────────────────
@@ -290,8 +290,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        session_dir = node._session_dir
         node.destroy_node()
         rclpy.shutdown()
+        print("Record ends.")
 
 
 if __name__ == '__main__':
