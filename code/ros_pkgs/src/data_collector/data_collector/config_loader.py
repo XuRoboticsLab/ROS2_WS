@@ -50,9 +50,21 @@ class RecordingConfig:
 
 
 @dataclass
+class VerifyConfig:
+    enabled: bool = True
+    primary: str = 'joint_states'   # topic name (not ROS topic, the 'name' field)
+    alignment_warn_ms: float = 50.0
+    dropout_threshold: float = 3.0
+    joint_topics: list = None   # list of topic names; None → ['joint_states']
+    ee_topics: list = None    # list of topic names; None → ['ee_pose']
+    plot: bool = True
+
+
+@dataclass
 class CollectorConfig:
     recording: RecordingConfig
     topics: List[TopicConfig]
+    verify: VerifyConfig = field(default_factory=VerifyConfig)
 
     @property
     def primary_topic(self) -> Optional[TopicConfig]:
@@ -60,6 +72,13 @@ class CollectorConfig:
         if not primaries:
             return None
         return primaries[0]
+
+
+def _parse_str_or_list(value) -> list:
+    """Accept a single string or a YAML list; always return a list of str."""
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    return [str(value)]
 
 
 def load_config(path: str | Path) -> CollectorConfig:
@@ -100,4 +119,18 @@ def load_config(path: str | Path) -> CollectorConfig:
     if n_primary == 0:
         topics[0].is_primary = True
 
-    return CollectorConfig(recording=recording, topics=topics)
+    # ── verify section ─────────────────────────────────────────────────────────
+    ver_raw = raw.get('verify', {})
+    verify = VerifyConfig(
+        enabled=bool(ver_raw.get('enabled', True)),
+        primary=str(ver_raw.get('primary', 'joint_states')),
+        alignment_warn_ms=float(ver_raw.get('alignment_warn_ms', 50.0)),
+        dropout_threshold=float(ver_raw.get('dropout_threshold', 3.0)),
+        joint_topics=_parse_str_or_list(ver_raw.get('joint_topics',
+                      ver_raw.get('joint_topic', 'joint_states'))),
+        ee_topics=_parse_str_or_list(ver_raw.get('ee_topics',
+                   ver_raw.get('ee_topic', 'ee_pose'))),
+        plot=bool(ver_raw.get('plot', True)),
+    )
+
+    return CollectorConfig(recording=recording, topics=topics, verify=verify)
