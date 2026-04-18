@@ -9,15 +9,22 @@ grip:
 scale:
   translation_m: 1.0    # XR 位移 → Twist linear 缩放
   rotation_rad:  1.0    # XR 旋转 → Twist angular 缩放
-  max_delta_pos_m: 0.3  # 单步最大位移，超出则忽略
+  max_delta_pos_m: 0.3  # 单步最大位移，超出则截断（方向保留）
+
+deadzone:
+  pos_m:   0.008  # 平移死区半径 (m)，约 2–3× tracker 噪声
+  rot_rad: 0.03   # 旋转死区 (rad ≈ 1.7°)
+
+filter:
+  alpha: 0.08
 
 # XR 坐标系 → 机械臂坐标系映射矩阵 (行向量 = 机械臂轴)
 coord_mapping:
-  pos: [[0, 0, 1],   # 机械臂 X ← XR Z
-        [1, 0, 0],   # 机械臂 Y ← XR X
+  pos: [[0, 0, -1],   # 机械臂 X ← XR Z
+        [-1, 0, 0],   # 机械臂 Y ← XR X
         [0, 1, 0]]   # 机械臂 Z ← XR Y
-  rot: [[0, 0, 1],
-        [1, 0, 0],
+  rot: [[0, 0, -1],
+        [-1, 0, 0],
         [0, 1, 0]]
 
 topics:

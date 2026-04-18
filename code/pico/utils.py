@@ -17,7 +17,13 @@ from scipy.spatial.transform import Rotation
 import time
 
 
-from config import XR_TO_ROBOT_POS, XR_TO_ROBOT_ROT, TRANSLATION_SCALE, ROTATION_SCALE, MAX_DELTA_POS, GRIP_THRESHOLD, DOUBLE_TAP_WINDOW
+from config import (
+    XR_TO_ROBOT_POS, XR_TO_ROBOT_ROT,
+    TRANSLATION_SCALE, ROTATION_SCALE, MAX_DELTA_POS,
+    DEADZONE_POS_M, DEADZONE_ROT_RAD,
+    FILTER_ALPHA,
+    GRIP_THRESHOLD, DOUBLE_TAP_WINDOW,
+)
 
 
 def _quat_to_matrix(qx, qy, qz, qw) -> np.ndarray:
@@ -43,6 +49,54 @@ def _rotation_to_rotvec(R: np.ndarray) -> np.ndarray:
     return Rotation.from_matrix(R).as_rotvec()
 
 
+def _clamp_vec(vec: np.ndarray, max_norm: float) -> np.ndarray:
+    """幅值超过 max_norm 时按比例截断，方向不变。"""
+    norm = np.linalg.norm(vec)
+    if norm > max_norm:
+        return vec * (max_norm / norm)
+    return vec
+
+
+def _apply_deadzone_vec(vec: np.ndarray, threshold: float) -> np.ndarray:
+    """
+    连续型死区：幅值 < threshold 时返回零向量；
+    幅值 >= threshold 时输出从 0 线性增长，方向不变。
+    output = (norm - threshold) / norm * vec
+    """
+    norm = np.linalg.norm(vec)
+    if norm < threshold:
+        return np.zeros_like(vec)
+    return vec * ((norm - threshold) / norm)
+
+
+class PoseEMAFilter:
+    """
+    对手柄位姿做 EMA 低通滤波，抑制生理性手抖（8–12 Hz）。
+    位置：分量级 EMA。
+    旋转：在切空间做 EMA（旋转向量缩放后合成），保证插值在 SO(3) 上连续。
+    """
+
+    def __init__(self, alpha: float):
+        self._alpha = alpha
+        self._pos: np.ndarray | None = None
+        self._rot: Rotation | None   = None
+
+    def reset(self, pos: np.ndarray, rot_matrix: np.ndarray):
+        """校准时调用，用当前原始位姿初始化滤波器状态，避免启动瞬态。"""
+        self._pos = pos.copy()
+        self._rot = Rotation.from_matrix(rot_matrix)
+
+    def update(self, pos: np.ndarray, rot_matrix: np.ndarray):
+        """输入原始位姿，返回滤波后的 (pos, rot_matrix)。"""
+        cur_rot = Rotation.from_matrix(rot_matrix)
+        # 位置 EMA
+        self._pos += self._alpha * (pos - self._pos)
+        # 旋转 EMA：在切空间插值，等价于 slerp(prev, cur, alpha)
+        r_delta = cur_rot * self._rot.inv()
+        self._rot = Rotation.from_rotvec(r_delta.as_rotvec() * self._alpha) * self._rot
+        return self._pos.copy(), self._rot.as_matrix()
+
+
 class ArmConverter:
     """单臂坐标转换器"""
 
@@ -51,10 +105,12 @@ class ArmConverter:
         self._init_pos = None   # XR 初始位置
         self._init_rot = None   # XR 初始旋转矩阵
         self.is_calibrated = False
+        self._filter = PoseEMAFilter(FILTER_ALPHA)
 
     def calibrate(self, pose_7d):
         """记录当前手柄位姿为基准（Grip 单击时调用）"""
         self._init_pos, self._init_rot = _pose7d_to_pos_rot(pose_7d)
+        self._filter.reset(self._init_pos, self._init_rot)
         self.is_calibrated = True
         print(f"  [{self.name}] XR 初始位置: {self._init_pos.round(4)}")
 
@@ -63,29 +119,42 @@ class ArmConverter:
         self._init_pos = None
         self._init_rot = None
 
-    def compute_twist(self, pose_7d) -> dict:
+    def compute_twist(self, pose_7d, headset_pose_7d) -> dict:
         """
         计算相对初始位姿的增量，返回 Twist dict：
           {"linear":  {"x": dx, "y": dy, "z": dz},
            "angular": {"x": rx, "y": ry, "z": rz}}
+        headset_pose_7d 用于提取用户当前水平朝向（yaw），使位移/旋转增量
+        相对于用户面朝方向，而非 XR 世界坐标系固定轴。
         """
         if not self.is_calibrated:
             return _zero_twist()
 
-        cur_pos, cur_rot = _pose7d_to_pos_rot(pose_7d)
+        raw_pos, raw_rot = _pose7d_to_pos_rot(pose_7d)
+        cur_pos, cur_rot = self._filter.update(raw_pos, raw_rot)
+
+        # ── 提取头部 yaw 旋转矩阵（XR 世界 Y 轴为垂直轴）──────
+        _, head_rot = _pose7d_to_pos_rot(headset_pose_7d)
+        head_yaw_angle = Rotation.from_matrix(head_rot).as_euler('YXZ')[0]
+        R_yaw = Rotation.from_euler('Y', head_yaw_angle).as_matrix()
+        # R_yaw.T 将世界坐标系向量变换到用户朝向坐标系
 
         # ── 位置增量 ──────────────────────────────
         delta_pos_xr = cur_pos - self._init_pos
-        if np.linalg.norm(delta_pos_xr) > MAX_DELTA_POS:
-            delta_pos_xr = np.zeros(3)
-        delta_pos = XR_TO_ROBOT_POS @ delta_pos_xr * TRANSLATION_SCALE
+        delta_pos_xr = _clamp_vec(delta_pos_xr, MAX_DELTA_POS)
+        delta_pos_xr = _apply_deadzone_vec(delta_pos_xr, DEADZONE_POS_M)
+        # 先转到用户朝向坐标系，再映射到机械臂坐标系
+        delta_pos = XR_TO_ROBOT_POS @ (R_yaw.T @ delta_pos_xr) * TRANSLATION_SCALE
 
         # ── 旋转增量 ──────────────────────────────
-        # delta_R_xr = cur_rot @ init_rot^T  (XR 坐标系中的旋转增量)
+        # delta_R_xr = cur_rot @ init_rot^T  (XR 世界坐标系中的旋转增量)
         delta_rot_xr = cur_rot @ self._init_rot.T
-        # 映射到机械臂坐标系
-        delta_rot_robot = XR_TO_ROBOT_ROT @ delta_rot_xr @ XR_TO_ROBOT_ROT.T
-        rotvec = _rotation_to_rotvec(delta_rot_robot) * ROTATION_SCALE
+        # 先将旋转增量转到用户朝向坐标系，再映射到机械臂坐标系
+        delta_rot_user = R_yaw.T @ delta_rot_xr @ R_yaw
+        delta_rot_robot = XR_TO_ROBOT_ROT @ delta_rot_user @ XR_TO_ROBOT_ROT.T
+        rotvec = _apply_deadzone_vec(
+            _rotation_to_rotvec(delta_rot_robot), DEADZONE_ROT_RAD
+        ) * ROTATION_SCALE
 
         return {
             "linear":  {"x": float(delta_pos[0]), "y": float(delta_pos[1]), "z": float(delta_pos[2])},

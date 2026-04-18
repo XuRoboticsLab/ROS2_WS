@@ -26,6 +26,13 @@ TRANSLATION_SCALE = float(_cfg["scale"]["translation_m"])
 ROTATION_SCALE    = float(_cfg["scale"]["rotation_rad"])
 MAX_DELTA_POS     = float(_cfg["scale"]["max_delta_pos_m"])
 
+# ── 死区 ──────────────────────────────────────
+DEADZONE_POS_M   = float(_cfg["deadzone"]["pos_m"])
+DEADZONE_ROT_RAD = float(_cfg["deadzone"]["rot_rad"])
+
+# ── 低通滤波 ──────────────────────────────────
+FILTER_ALPHA = float(_cfg["filter"]["alpha"])
+
 # ── 坐标系映射 ────────────────────────────────
 XR_TO_ROBOT_POS = np.array(_cfg["coord_mapping"]["pos"], dtype=float)
 XR_TO_ROBOT_ROT = np.array(_cfg["coord_mapping"]["rot"], dtype=float)

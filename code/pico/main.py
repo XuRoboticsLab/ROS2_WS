@@ -85,6 +85,7 @@ def main():
             try:
                 right_pose    = list(xrt.get_right_controller_pose())
                 left_pose     = list(xrt.get_left_controller_pose())
+                headset_pose  = list(xrt.get_headset_pose())
                 right_trigger = xrt.get_right_trigger()
                 left_trigger  = xrt.get_left_trigger()
                 right_grip_v  = xrt.get_right_grip()
@@ -136,10 +137,10 @@ def main():
 
             # ── 发布 cmd ─────────────────────
             if r_active and right_conv.is_calibrated:
-                publisher.publish_cmd("right", right_conv.compute_twist(right_pose))
+                publisher.publish_cmd("right", right_conv.compute_twist(right_pose, headset_pose))
 
             if l_active and left_conv.is_calibrated:
-                publisher.publish_cmd("left", left_conv.compute_twist(left_pose))
+                publisher.publish_cmd("left", left_conv.compute_twist(left_pose, headset_pose))
 
             # ── 发布夹爪 ─────────────────────
             publisher.publish_gripper("right", _gripper_value(right_trigger))
