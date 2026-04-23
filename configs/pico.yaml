@@ -26,6 +26,7 @@ coord_mapping:
   rot: [[0, 0, -1],
         [-1, 0, 0],
         [0, 1, 0]]
+  rot_sign: [-1, 1, 1]
 
 topics:
   publish:
@@ -35,4 +36,6 @@ topics:
     left_gripper:   "/joystick/left/gripper"
     right_reset:    "/joystick/right/reset"
     left_reset:     "/joystick/left/reset"
+    right_init:     "/joystick/right/init"
+    left_init:     "/joystick/left/init"
     emergency:      "/joystick/emergency"

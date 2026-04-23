@@ -125,6 +125,7 @@ def main():
                 publisher.publish_reset("right", True)
             elif r_init:
                 right_conv.calibrate(right_pose)
+                publisher.publish_init("right")
 
             # ── 左手 Grip 逻辑 ────────────────
             l_active, l_init, l_reset = left_grip.update(left_grip_v)
@@ -134,6 +135,7 @@ def main():
                 publisher.publish_reset("left", True)
             elif l_init:
                 left_conv.calibrate(left_pose)
+                publisher.publish_init("left")
 
             # ── 发布 cmd ─────────────────────
             if r_active and right_conv.is_calibrated:

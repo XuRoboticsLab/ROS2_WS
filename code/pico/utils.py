@@ -18,7 +18,7 @@ import time
 
 
 from config import (
-    XR_TO_ROBOT_POS, XR_TO_ROBOT_ROT,
+    XR_TO_ROBOT_POS, XR_TO_ROBOT_ROT, POS_SIGN, ROT_SIGN,
     TRANSLATION_SCALE, ROTATION_SCALE, MAX_DELTA_POS,
     DEADZONE_POS_M, DEADZONE_ROT_RAD,
     FILTER_ALPHA,
@@ -44,9 +44,9 @@ def _pose7d_to_pos_rot(pose_7d):
     return pos, rot
 
 
-def _rotation_to_rotvec(R: np.ndarray) -> np.ndarray:
-    """旋转矩阵 → 旋转向量 (rx, ry, rz)，单位 rad"""
-    return Rotation.from_matrix(R).as_rotvec()
+def _rotation_to_euler(R: np.ndarray) -> np.ndarray:
+    """旋转矩阵 → 内禀欧拉角 (rx, ry, rz)，单位 rad，xyz 顺序"""
+    return Rotation.from_matrix(R).as_euler('xyz')
 
 
 def _clamp_vec(vec: np.ndarray, max_norm: float) -> np.ndarray:
@@ -106,18 +106,25 @@ class ArmConverter:
         self._init_rot = None   # XR 初始旋转矩阵
         self.is_calibrated = False
         self._filter = PoseEMAFilter(FILTER_ALPHA)
+        # 上一帧输出的偏移量（机械臂坐标系），用于增量死区
+        self._last_pos: np.ndarray | None = None
+        self._last_rotvec: np.ndarray | None = None
 
     def calibrate(self, pose_7d):
         """记录当前手柄位姿为基准（Grip 单击时调用）"""
         self._init_pos, self._init_rot = _pose7d_to_pos_rot(pose_7d)
         self._filter.reset(self._init_pos, self._init_rot)
+        self._last_pos    = np.zeros(3)
+        self._last_rotvec = np.zeros(3)
         self.is_calibrated = True
         print(f"  [{self.name}] XR 初始位置: {self._init_pos.round(4)}")
 
     def reset(self):
         self.is_calibrated = False
-        self._init_pos = None
-        self._init_rot = None
+        self._init_pos    = None
+        self._init_rot    = None
+        self._last_pos    = None
+        self._last_rotvec = None
 
     def compute_twist(self, pose_7d, headset_pose_7d) -> dict:
         """
@@ -126,6 +133,8 @@ class ArmConverter:
            "angular": {"x": rx, "y": ry, "z": rz}}
         headset_pose_7d 用于提取用户当前水平朝向（yaw），使位移/旋转增量
         相对于用户面朝方向，而非 XR 世界坐标系固定轴。
+        死区作用于帧间变化量：只有输出值的变化幅度超过阈值时才更新输出，
+        否则保持上一帧输出不变，从而过滤在任意位置处的手抖。
         """
         if not self.is_calibrated:
             return _zero_twist()
@@ -137,24 +146,25 @@ class ArmConverter:
         _, head_rot = _pose7d_to_pos_rot(headset_pose_7d)
         head_yaw_angle = Rotation.from_matrix(head_rot).as_euler('YXZ')[0]
         R_yaw = Rotation.from_euler('Y', head_yaw_angle).as_matrix()
-        # R_yaw.T 将世界坐标系向量变换到用户朝向坐标系
 
-        # ── 位置增量 ──────────────────────────────
-        delta_pos_xr = cur_pos - self._init_pos
-        delta_pos_xr = _clamp_vec(delta_pos_xr, MAX_DELTA_POS)
-        delta_pos_xr = _apply_deadzone_vec(delta_pos_xr, DEADZONE_POS_M)
-        # 先转到用户朝向坐标系，再映射到机械臂坐标系
-        delta_pos = XR_TO_ROBOT_POS @ (R_yaw.T @ delta_pos_xr) * TRANSLATION_SCALE
+        # ── 位置：增量死区 ────────────────────────
+        delta_pos_xr = _clamp_vec(cur_pos - self._init_pos, MAX_DELTA_POS)
+        raw_pos_out  = XR_TO_ROBOT_POS @ (R_yaw.T @ delta_pos_xr) * POS_SIGN
+        # 只有相对上帧输出的变化量超过阈值时才更新，否则保持上帧输出
+        pos_change = _apply_deadzone_vec(raw_pos_out - self._last_pos, DEADZONE_POS_M)
+        self._last_pos = self._last_pos + pos_change
 
-        # ── 旋转增量 ──────────────────────────────
-        # delta_R_xr = cur_rot @ init_rot^T  (XR 世界坐标系中的旋转增量)
-        delta_rot_xr = cur_rot @ self._init_rot.T
-        # 先将旋转增量转到用户朝向坐标系，再映射到机械臂坐标系
+        # ── 旋转：增量死区 ────────────────────────
+        delta_rot_xr   = cur_rot @ self._init_rot.T
         delta_rot_user = R_yaw.T @ delta_rot_xr @ R_yaw
         delta_rot_robot = XR_TO_ROBOT_ROT @ delta_rot_user @ XR_TO_ROBOT_ROT.T
-        rotvec = _apply_deadzone_vec(
-            _rotation_to_rotvec(delta_rot_robot), DEADZONE_ROT_RAD
-        ) * ROTATION_SCALE
+        euler = _rotation_to_euler(delta_rot_robot)
+        raw_rotvec_out = Rotation.from_euler('xyz', euler * ROT_SIGN).as_rotvec()
+        rot_change = _apply_deadzone_vec(raw_rotvec_out - self._last_rotvec, DEADZONE_ROT_RAD)
+        self._last_rotvec = self._last_rotvec + rot_change
+
+        delta_pos = self._last_pos * TRANSLATION_SCALE
+        rotvec    = self._last_rotvec * ROTATION_SCALE
 
         return {
             "linear":  {"x": float(delta_pos[0]), "y": float(delta_pos[1]), "z": float(delta_pos[2])},

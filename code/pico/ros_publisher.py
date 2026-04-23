@@ -7,6 +7,7 @@ from config import (
     TOPIC_RIGHT_CMD, TOPIC_LEFT_CMD,
     TOPIC_RIGHT_GRIPPER, TOPIC_LEFT_GRIPPER,
     TOPIC_RIGHT_RESET, TOPIC_LEFT_RESET,
+    TOPIC_RIGHT_INIT, TOPIC_LEFT_INIT,
     TOPIC_EMERGENCY,
 )
 
@@ -21,6 +22,8 @@ class XRRosPublisher:
             "left_gripper":  roslibpy.Topic(ros, TOPIC_LEFT_GRIPPER,  "std_msgs/Int8"),
             "right_reset":   roslibpy.Topic(ros, TOPIC_RIGHT_RESET,   "std_msgs/Bool"),
             "left_reset":    roslibpy.Topic(ros, TOPIC_LEFT_RESET,    "std_msgs/Bool"),
+            "right_init":    roslibpy.Topic(ros, TOPIC_RIGHT_INIT,    "std_msgs/Bool"),
+            "left_init":     roslibpy.Topic(ros, TOPIC_LEFT_INIT,     "std_msgs/Bool"),
             "emergency":     roslibpy.Topic(ros, TOPIC_EMERGENCY,     "std_msgs/Bool"),
         }
 
@@ -38,6 +41,10 @@ class XRRosPublisher:
 
     def publish_reset(self, side: str, value: bool = True):
         self._pub(f"{side}_reset", {"data": value})
+
+    def publish_init(self, side: str):
+        """通知机器人记录当前末端位姿为校准基准（Grip 单击时调用）。"""
+        self._pub(f"{side}_init", {"data": True})
 
     def publish_emergency(self, active: bool):
         self._pub("emergency", {"data": active})
