@@ -12,7 +12,7 @@ if not _YAML_PATH:
 with open(_YAML_PATH, "r") as f:
     _cfg = yaml.safe_load(f)
 
-MOTOR_CONFIG_PATH = str(_cfg["motot_config_path"])
+MOTOR_CONFIG_PATH = str(_cfg["motor_config_path"])
 
 # ── ROS Bridge ────────────────────────────────
 ROSBRIDGE_HOST = _cfg["rosbridge"]["host"]

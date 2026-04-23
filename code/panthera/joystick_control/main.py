@@ -55,13 +55,17 @@ def init_robot() -> Panthera:
 
 def init_state(robot: Panthera) -> SharedState:
     state = SharedState()
-    fk = robot.forward_kinematics()
+    fk      = robot.forward_kinematics()
+    gripper = robot.get_current_state_gripper()
     state.reset_target_to(fk["position"], fk["rotation"])
     state.last_valid_joint_pos = robot.get_current_pos()
     state.set_robot_state(
         state.last_valid_joint_pos,
+        robot.get_current_vel(),
         fk["position"],
         np.array(fk["rotation"], dtype=float),
+        gripper_pos=gripper.position,
+        gripper_vel=gripper.velocity,
     )
     print(f"[Init] 初始末端位置: {[f'{v:.3f}' for v in fk['position']]}")
     return state
