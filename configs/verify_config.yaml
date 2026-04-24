@@ -3,7 +3,7 @@
 # =============================================================================
 
 # Root data directory — the script will auto-pick the latest session folder
-data_dir: ./data/0409
+data_dir: ./data/open_top_drawer
 
 # Topic names (the 'name' field in data_collection.yaml) whose files are images
 # These will be played back as a video before the analysis plots
@@ -17,7 +17,7 @@ verify:
   alignment_warn_ms: 10
   dropout_threshold: 3.0
 
-  plot: false                
+  plot: true                
 
   joint_topics:
     - follower_1_joint

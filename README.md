@@ -205,10 +205,12 @@ topics:
 ```
 
 **发布的 Topics：**
-| Topic | 类型 |
-|---|---|
-| `topics.publish.joints` | `sensor_msgs/JointState` |
-| `topics.publish.ee` | `geometry_msgs/PoseStamped` |
+| Topic | 类型 | 说明 |
+|---|---|---|
+| `topics.publish.joints` | `sensor_msgs/JointState` | 6 个关节 + 夹爪，共 7 个 entry |
+| `topics.publish.ee` | `geometry_msgs/PoseStamped` | 末端位姿 |
+
+JointState 的 `name` 字段为 `joints.names`（配置文件中的 6 个关节名）加上 `"gripper"`，`position` 和 `velocity` 均来自实时读取。
 
 **启动：**
 ```bash
@@ -240,10 +242,12 @@ pairs:
 ```
 
 **发布的 Topics：**
-| Topic | 类型 |
-|---|---|
-| `topics.publish.joint_states` | `sensor_msgs/JointState` |
-| `topics.publish.end_effector` | `geometry_msgs/PoseStamped` |
+| Topic | 类型 | 说明 |
+|---|---|---|
+| `topics.publish.joint_states` | `sensor_msgs/JointState` | 6 个关节 + 夹爪，共 7 个 entry |
+| `topics.publish.end_effector` | `geometry_msgs/PoseStamped` | 末端位姿 |
+
+JointState 的 `name` 字段为 `joint_1` … `joint_6` 加上 `"gripper"`，`position` 和 `velocity` 均来自 follower 实时读取。
 
 **启动：**
 ```bash
