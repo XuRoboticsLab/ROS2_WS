@@ -1,0 +1,12 @@
+serial_number: '134722070932'   # D435 on perception arm
+camera_name: percep             # topic namespace: /percep/color/image_raw etc.
+enable_depth: true              # M1 needs depth for scene graph reconstruction
+publish_rate: 30.0              # Hz
+image_width: 640
+image_height: 480
+
+# Topics published:
+# /percep/color/image_raw       (sensor_msgs/Image, bgr8)
+# /percep/color/camera_info     (sensor_msgs/CameraInfo)
+# /percep/depth/image_raw       (sensor_msgs/Image, 16UC1, mm)
+# /percep/depth/camera_info     (sensor_msgs/CameraInfo)

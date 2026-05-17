@@ -1,5 +1,5 @@
 serial_number: '260322272645'   # '' = first available device
-camera_name: extern             # topic namespace and TF prefix
+camera_name: right             # topic namespace and TF prefix
 enable_depth: false             # publish depth stream
 publish_rate: 30.0              # Hz
 image_width: 640

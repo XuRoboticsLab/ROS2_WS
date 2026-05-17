@@ -26,7 +26,7 @@ coord_mapping:
   rot: [[0, 0, -1],
         [-1, 0, 0],
         [0, 1, 0]]
-  rot_sign: [-1, 1, 1]
+  rot_sign: [1, 1, 1]
 
 topics:
   publish:

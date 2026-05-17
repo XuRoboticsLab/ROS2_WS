@@ -1,4 +1,4 @@
-motor_config_path: "/home/xuroboticslab/ws/Panthera-HT_SDK/panthera_python/robot_param/LEFT.yaml"
+motor_config_path: "/home/xuroboticslab/ws/new2/configs/robot_param/Follower_left.yaml"
 rosbridge:
   host: "localhost"
   port: 9090
@@ -35,6 +35,6 @@ topics:
     gripper: "/joystick/left/gripper"
     reset:   "/joystick/left/reset"
   publish:
-    joints:  "/left/joint_states"
-    ee:      "/right/end_effector"
+    joints:  "/follower_left/joint_states"
+    ee:      "/follower_left/end_effector"
     

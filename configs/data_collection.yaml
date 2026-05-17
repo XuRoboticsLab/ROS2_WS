@@ -9,7 +9,14 @@ recording:
 
   # Root directory where recorded files will be written.
   # Sub-folders per session can be added in the launch file if desired.
-  output_dir: ./data/0409
+  # output_dir: ./data/0425
+  # output_dir: ./data/close_top_drawer
+  # output_dir: ./data/open_bottom_drawer
+  # output_dir: ./data/close_bottom_drawer
+  # output_dir: ./data/pick_cube_above
+  # output_dir: ./data/pick_cube_top
+  # output_dir: ./data/pick_cube_bottom
+  output_dir: ./data/useless_left
 
   # Size of the in-memory ring buffer for each topic.
   # Larger values let the aligner look further back in time.
@@ -36,7 +43,7 @@ recording:
 # =============================================================================
 
 topics:
-
+# subscribe
   - name: left
     topic: /left/color/image_raw
     msg_type: sensor_msgs/Image
@@ -53,23 +60,23 @@ topics:
     is_primary: false
 
   
-  - name: follower_1_joint
-    topic: /follower_1/joint_states
+  - name: left_joint
+    topic: /follower_left/joint_states
     msg_type: sensor_msgs/JointState
     is_primary: false
   
-  - name: follower_1_ee
-    topic: /follower_1/end_effector
+  - name: left_ee
+    topic: /follower_left/end_effector
     msg_type: geometry_msgs/PoseStamped
     is_primary: false
 
-  - name: follower_2_joint
-    topic: /follower_2/joint_states
+  - name: right_joint
+    topic: /follower_right/joint_states
     msg_type: sensor_msgs/JointState
     is_primary: false
 
-  - name: follower_2_ee
-    topic: /follower_2/end_effector
+  - name: right_ee
+    topic: /follower_right/end_effector
     msg_type: geometry_msgs/PoseStamped
     is_primary: false
 
@@ -112,19 +119,19 @@ verify:
 
   # Topic names for trajectory smoothness analysis (single string or list)
   joint_topics:
-    - follower_1_joint
-    - follower_2_joint
+    - left_joint
+    - right_joint
   ee_topics:
-    - follower_1_ee
-    - follower_2_ee
+    - left_ee
+    - right_ee
 
   # Show plots and image playback after recording stops
-  plot: true
+  plot: false
 
   # Gripper analysis (only runs when plot: true)
   gripper:
     joint_topics:
-      - follower_1_joint
-      - follower_2_joint
+      - left_joint
+      - right_joint
     joint_name: gripper        # name of the gripper joint inside the JointState msg
     transition_factor: 5.0     # jump threshold multiplier for transition detection

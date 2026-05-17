@@ -1,21 +1,21 @@
-rosbridge:
+ rosbridge:
   host: "localhost"
   port: 9090
 
 # Map each pedal to a device name substring and the ROS topic it publishes to.
 # Run `sudo evtest` to find the device name and key code for each pedal.
-pedals:
+ pedals:
   - device: "KM-key08"
-    phys: "usb-0000:09:00.0-2.3/input0"
+    phys: "usb-0000:09:00.0-4.4.3/input0"
     key: "KEY_SPACE"
     topic: "/foot_pedal/press"
 
   - device: "KM-key08"
-    phys: "usb-0000:09:00.0-2.4/input0"
+    phys: "usb-0000:09:00.0-4.4.2/input0"
     key: "KEY_SPACE"
     topic: "/foot_pedal/save"
 
   - device: "KM-key08"
-    phys: "usb-0000:09:00.0-3.3/input0"
+    phys: "usb-0000:09:00.0-4.4.4/input0"
     key: "KEY_SPACE"
     topic: "/foot_pedal/delete"
