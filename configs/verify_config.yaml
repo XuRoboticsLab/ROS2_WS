@@ -3,7 +3,7 @@
 # =============================================================================
 
 # Root data directory — the script will auto-pick the latest session folder
-data_dir: ./data/open_top_drawer
+data_dir: ./data/useless_left
 
 # Topic names (the 'name' field in data_collection.yaml) whose files are images
 # These will be played back as a video before the analysis plots

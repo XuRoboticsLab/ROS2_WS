@@ -6,16 +6,16 @@
 # Run `sudo evtest` to find the device name and key code for each pedal.
  pedals:
   - device: "KM-key08"
-    phys: "usb-0000:09:00.0-3.3/input0"
+    phys: "usb-0000:09:00.0-4.4.3/input0"
     key: "KEY_SPACE"
     topic: "/foot_pedal/press"
 
   - device: "KM-key08"
-    phys: "usb-0000:09:00.0-3.4/input0"
+    phys: "usb-0000:09:00.0-4.4.2/input0"
     key: "KEY_SPACE"
     topic: "/foot_pedal/save"
 
   - device: "KM-key08"
-    phys: "usb-0000:09:00.0-3.2/input0"
+    phys: "usb-0000:09:00.0-4.4.4/input0"
     key: "KEY_SPACE"
     topic: "/foot_pedal/delete"

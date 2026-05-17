@@ -14,13 +14,13 @@ pairs:
         joint_states: "/follower_left/joint_states"
         end_effector: "/follower_left/end_effector"
 
-  # - name: "pair_2"
-  #   leader:   "/home/xuroboticslab/ws/new2/configs/robot_param/Leader_right.yaml"
-  #   follower: "/home/xuroboticslab/ws/new2/configs/robot_param/Follower_right.yaml"
-  #   topics:
-  #     publish:
-  #       joint_states: "/follower_right/joint_states"
-  #       end_effector: "/follower_right/end_effector"
+  - name: "pair_2"
+    leader:   "/home/xuroboticslab/ws/new2/configs/robot_param/Leader_right.yaml"
+    follower: "/home/xuroboticslab/ws/new2/configs/robot_param/Follower_right.yaml"
+    topics:
+      publish:
+        joint_states: "/follower_right/joint_states"
+        end_effector: "/follower_right/end_effector"
 
 control:
   kp: [10.0, 21.0, 21.0, 16.0, 13.0, 1.0]

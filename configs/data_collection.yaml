@@ -9,13 +9,14 @@ recording:
 
   # Root directory where recorded files will be written.
   # Sub-folders per session can be added in the launch file if desired.
-  output_dir: ./data/open_top_drawer
+  # output_dir: ./data/0425
   # output_dir: ./data/close_top_drawer
   # output_dir: ./data/open_bottom_drawer
   # output_dir: ./data/close_bottom_drawer
-  # output_dir: ./data/pick_cube_1
-  # output_dir: ./data/pick_cube_2
-  # output_dir: ./data/pick_cube_3
+  # output_dir: ./data/pick_cube_above
+  # output_dir: ./data/pick_cube_top
+  # output_dir: ./data/pick_cube_bottom
+  output_dir: ./data/useless_left
 
   # Size of the in-memory ring buffer for each topic.
   # Larger values let the aligner look further back in time.
