@@ -34,9 +34,13 @@ from utils import GripDetector, ArmConverter
 from ros_publisher import XRRosPublisher
 
 
-def _gripper_value(trigger: float) -> int:
-    """trigger > 0.5 → open(1), 否则 close(-1)"""
-    return 1 if trigger > 0.5 else -1
+def _button_gripper_value(open_btn: bool, close_btn: bool) -> int:
+    """open_btn → 1 (open), close_btn → -1 (close), 均未按 → 0 (idle)"""
+    if open_btn:
+        return 1
+    elif close_btn:
+        return -1
+    return 0
 
 
 def main():
@@ -46,8 +50,10 @@ def main():
     print("  右手 Grip 按住:   控制右臂")
     print("  左手 Grip 按住:   控制左臂")
     print("  Grip 连按两次:    对应臂回零")
-    print("  Trigger:          夹爪开合")
-    print("  Y 键:             紧急停止")
+    print("  右手 B:           右夹爪张开")
+    print("  右手 A:           右夹爪闭合")
+    print("  左手 Y:           左夹爪张开")
+    print("  左手 X:           左夹爪闭合")
     print("  Ctrl+C:           退出\n")
 
     # ── 初始化 XRT SDK ────────────────────────
@@ -73,9 +79,7 @@ def main():
     right_conv  = ArmConverter("右臂")
     left_conv   = ArmConverter("左臂")
 
-    emergency_stop = False
-    prev_Y         = False
-    loop_count     = 0
+    loop_count = 0
 
     print("等待 Pico 4 Ultra 连接...\n")
 
@@ -83,37 +87,19 @@ def main():
         while True:
             # ── 读取 XR 数据 ──────────────────
             try:
-                right_pose    = list(xrt.get_right_controller_pose())
-                left_pose     = list(xrt.get_left_controller_pose())
-                headset_pose  = list(xrt.get_headset_pose())
-                right_trigger = xrt.get_right_trigger()
-                left_trigger  = xrt.get_left_trigger()
-                right_grip_v  = xrt.get_right_grip()
-                left_grip_v   = xrt.get_left_grip()
-                Y             = xrt.get_Y_button()
+                right_pose   = list(xrt.get_right_controller_pose())
+                left_pose    = list(xrt.get_left_controller_pose())
+                headset_pose = list(xrt.get_headset_pose())
+                right_grip_v = xrt.get_right_grip()
+                left_grip_v  = xrt.get_left_grip()
+                B_btn        = xrt.get_B_button()   # 右手开
+                A_btn        = xrt.get_A_button()   # 右手关
+                Y_btn        = xrt.get_Y_button()   # 左手开
+                X_btn        = xrt.get_X_button()   # 左手关
             except Exception as e:
                 if loop_count % 500 == 0:
                     print(f"\r[警告] XR 数据读取失败: {e}    ", end="", flush=True)
                 time.sleep(0.01)
-                loop_count += 1
-                continue
-
-            # ── Y 键：紧急停止 ────────────────
-            if Y and not prev_Y:
-                emergency_stop = True
-                publisher.publish_emergency(True)
-                print("\n[Y] !!! 紧急停止 !!! (按 Grip 恢复)")
-            prev_Y = Y
-
-            if emergency_stop:
-                # 任意手 Grip 单击解除急停
-                r_active, r_init, _ = right_grip.update(right_grip_v)
-                l_active, l_init, _ = left_grip.update(left_grip_v)
-                if r_init or l_init:
-                    emergency_stop = False
-                    publisher.publish_emergency(False)
-                    print("[Grip] 急停已解除")
-                time.sleep(0.002)
                 loop_count += 1
                 continue
 
@@ -145,8 +131,8 @@ def main():
                 publisher.publish_cmd("left", left_conv.compute_twist(left_pose, headset_pose))
 
             # ── 发布夹爪 ─────────────────────
-            publisher.publish_gripper("right", _gripper_value(right_trigger))
-            publisher.publish_gripper("left",  _gripper_value(left_trigger))
+            publisher.publish_gripper("right", _button_gripper_value(B_btn, A_btn))
+            publisher.publish_gripper("left",  _button_gripper_value(Y_btn, X_btn))
 
             # ── 打印状态 (20 Hz) ─────────────
             if loop_count % 50 == 0:
