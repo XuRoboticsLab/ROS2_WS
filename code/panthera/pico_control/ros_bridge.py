@@ -38,7 +38,7 @@ def make_cmd_callback(state: SharedState):
 def make_gripper_callback(state: SharedState):
     def callback(msg):
         with state._lock:
-            state.gripper_cmd = int(msg["data"])
+            state.gripper_cmd = float(msg["data"])
     return callback
 
 
@@ -69,7 +69,7 @@ class RosSubscribers:
     def __init__(self, ros: roslibpy.Ros, state: SharedState):
         self._subs = [
             roslibpy.Topic(ros, TOPIC_CMD,     "geometry_msgs/Twist"),
-            roslibpy.Topic(ros, TOPIC_GRIPPER, "std_msgs/Int8"),
+            roslibpy.Topic(ros, TOPIC_GRIPPER, "std_msgs/Float32"),
             roslibpy.Topic(ros, TOPIC_RESET,   "std_msgs/Bool"),
             roslibpy.Topic(ros, TOPIC_INIT,    "std_msgs/Bool"),
         ]

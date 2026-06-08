@@ -18,8 +18,8 @@ class XRRosPublisher:
         self._pubs = {
             "right_cmd":     roslibpy.Topic(ros, TOPIC_RIGHT_CMD,     "geometry_msgs/Twist"),
             "left_cmd":      roslibpy.Topic(ros, TOPIC_LEFT_CMD,      "geometry_msgs/Twist"),
-            "right_gripper": roslibpy.Topic(ros, TOPIC_RIGHT_GRIPPER, "std_msgs/Int8"),
-            "left_gripper":  roslibpy.Topic(ros, TOPIC_LEFT_GRIPPER,  "std_msgs/Int8"),
+            "right_gripper": roslibpy.Topic(ros, TOPIC_RIGHT_GRIPPER, "std_msgs/Float32"),
+            "left_gripper":  roslibpy.Topic(ros, TOPIC_LEFT_GRIPPER,  "std_msgs/Float32"),
             "right_reset":   roslibpy.Topic(ros, TOPIC_RIGHT_RESET,   "std_msgs/Bool"),
             "left_reset":    roslibpy.Topic(ros, TOPIC_LEFT_RESET,    "std_msgs/Bool"),
             "right_init":    roslibpy.Topic(ros, TOPIC_RIGHT_INIT,    "std_msgs/Bool"),
@@ -35,9 +35,9 @@ class XRRosPublisher:
         """side: 'right' | 'left'"""
         self._pub(f"{side}_cmd", twist)
 
-    def publish_gripper(self, side: str, value: int):
-        """value: 1=open, -1=close, 0=idle"""
-        self._pub(f"{side}_gripper", {"data": value})
+    def publish_gripper(self, side: str, pos: float):
+        """pos: 0.0=fully closed, 2.0=fully open (rad)"""
+        self._pub(f"{side}_gripper", {"data": float(pos)})
 
     def publish_reset(self, side: str, value: bool = True):
         self._pub(f"{side}_reset", {"data": value})

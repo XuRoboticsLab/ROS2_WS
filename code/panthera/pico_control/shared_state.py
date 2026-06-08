@@ -45,8 +45,8 @@ class SharedState:
         # 待处理的 Pico 偏移量（位置控制：取最新值，不累加）
         self._pending_twist = None
 
-        # 夹爪指令：1=open，-1=close，0=idle
-        self.gripper_cmd = 0
+        # 夹爪目标位置 (rad)：0.0=完全闭合，2.0=完全张开；None=尚未收到指令
+        self.gripper_cmd: float | None = None
 
         # 物理复位请求（reset 信号）
         self.reset_requested = False
