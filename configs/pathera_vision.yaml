@@ -1,4 +1,4 @@
-motor_config_path: "/home/xuroboticslab/ws/new2/configs/robot_param/Follower_vision.yaml"
+motor_config_path: "/home/xuroboticslab/ws/ros/wbcd/configs/robot_param/Follower_vision.yaml"
 rosbridge:
   host: "localhost"
   port: 9090

@@ -1,0 +1,56 @@
+motor_config_path: "/home/xuroboticslab/ws/ros/wbcd/configs/robot_param/Follower_left.yaml"
+
+rosbridge:
+  host: "localhost"
+  port: 9090
+
+rates:
+  control_hz: 50.0
+  publish_hz: 100.0
+  watchdog_timeout_s: 0.5
+
+# PD 增益，传给 pos_vel_tqe_kp_kd
+ik_control:
+  kp: [30.0, 50.0, 60.0, 25.0, 15.0, 10.0]
+  kd: [ 3.0,  5.0,  6.0,  2.5,  1.5,  1.0]
+
+# IK 关节空间限幅
+ik_params:
+  max_joint_step_rad: 0.15   # 每控制周期最大关节位移（rad），防止 IK 在奇异点附近跳变
+
+safe_position:
+  joint_pos: [0.0, 0.5, 0.6, 0.0, 0.0, 0.0]
+  joint_vel: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+
+# Pico 位移/旋转 → 机械臂末端偏移缩放
+# Pico 发送的是绝对偏移量（相对于校准基准），缩放后加到校准基准上
+twist_scale:
+  translation_m: 0.7   # Pico 单位位移 → 机械臂末端位移 (m)
+  rotation_rad:  1   # Pico 单位旋转 → 机械臂末端旋转 (rad)
+
+# Smooth target PD 跟踪参数
+smoothing:
+  max_linear_vel_m_s:    0.2  # 末端最大线速度上限 (m/s)
+  max_angular_vel_rad_s: 0.5   # 末端最大角速度上限 (rad/s)
+  tracking_gain_hz:      40    # P 增益（Hz）；时间常数 ≈ 1/gain 秒
+  damping_ratio:         0.6   # D/P 比例；1.0=临界阻尼
+
+joints:
+  names:
+    - joint_1
+    - joint_2
+    - joint_3
+    - joint_4
+    - joint_5
+    - joint_6
+
+topics:
+  subscribe:
+    cmd:     "/joystick/left/cmd"
+    gripper: "/joystick/left/gripper"
+    reset:   "/joystick/left/reset"   # Pico reset 信号 → 物理复位到安全位置
+    init:    "/joystick/left/init"    # Pico init 信号 → 校准当前末端位姿为位置控制基准
+    mode:    "/joystick/left/mode"
+  publish:
+    joints:  "/follower_left/joint_states"
+    ee:      "/follower_left/end_effector"
