@@ -1,9 +1,9 @@
 import os
 import shutil
 
-src_dir = "/home/xuroboticslab/ws/new2/data/0425"
-dst_odd = "/home/xuroboticslab/ws/new2/data/open_bottom_drawer"
-dst_even = "/home/xuroboticslab/ws/new2/data/close_bottom_drawer"
+src_dir = "/home/xuroboticslab/ws/ros/wbcd/data/0425"
+dst_odd = "/home/xuroboticslab/ws/ros/wbcd/data/open_bottom_drawer"
+dst_even = "/home/xuroboticslab/ws/ros/wbcd/data/close_bottom_drawer"
 
 # 创建目标目录（如果不存在）
 os.makedirs(dst_odd, exist_ok=True)

@@ -17,7 +17,7 @@ def count_first_level(path):
 
 
 if __name__ == "__main__":
-    target_path = "/home/xuroboticslab/ws/new2/data/useless_left"  # 替换成你的路径
+    target_path = "/home/xuroboticslab/ws/ros/wbcd/data/useless_left"  # 替换成你的路径
 
     files, dirs = count_first_level(target_path)
 

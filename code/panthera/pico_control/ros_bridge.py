@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 from config import (
     PUBLISH_RATE,
     JOINT_NAMES,
-    TOPIC_CMD, TOPIC_GRIPPER, TOPIC_RESET, TOPIC_INIT,
+    TOPIC_CMD, TOPIC_GRIPPER, TOPIC_RESET, TOPIC_INIT, TOPIC_MODE,
     TOPIC_JOINTS, TOPIC_EE,
 )
 from shared_state import SharedState
@@ -62,22 +62,34 @@ def make_init_callback(state: SharedState):
     return callback
 
 
+def make_mode_callback(state: SharedState):
+    """Pico 旋转约束模式信号：True=约束(仅x轴旋转), False=自由旋转。"""
+    def callback(msg):
+        state.set_constrained_mode(bool(msg["data"]))
+    return callback
+
+
 # ─────────────────────────────────────────────
 #  订阅管理
 # ─────────────────────────────────────────────
 class RosSubscribers:
     def __init__(self, ros: roslibpy.Ros, state: SharedState):
-        self._subs = [
-            roslibpy.Topic(ros, TOPIC_CMD,     "geometry_msgs/Twist"),
-            roslibpy.Topic(ros, TOPIC_GRIPPER, "std_msgs/Float32"),
-            roslibpy.Topic(ros, TOPIC_RESET,   "std_msgs/Bool"),
-            roslibpy.Topic(ros, TOPIC_INIT,    "std_msgs/Bool"),
-        ]
-        self._subs[0].subscribe(make_cmd_callback(state))
-        self._subs[1].subscribe(make_gripper_callback(state))
-        self._subs[2].subscribe(make_reset_callback(state))
-        self._subs[3].subscribe(make_init_callback(state))
-        print(f"[ROS] 已订阅 {TOPIC_CMD}, {TOPIC_GRIPPER}, {TOPIC_RESET}, {TOPIC_INIT}")
+        self._subs = []
+
+        def _sub(topic, msg_type, cb):
+            if not topic:
+                return
+            t = roslibpy.Topic(ros, topic, msg_type)
+            t.subscribe(cb)
+            self._subs.append(t)
+
+        _sub(TOPIC_CMD,     "geometry_msgs/Twist", make_cmd_callback(state))
+        _sub(TOPIC_GRIPPER, "std_msgs/Float32",    make_gripper_callback(state))
+        _sub(TOPIC_RESET,   "std_msgs/Bool",       make_reset_callback(state))
+        _sub(TOPIC_INIT,    "std_msgs/Bool",       make_init_callback(state))
+        _sub(TOPIC_MODE,    "std_msgs/Bool",       make_mode_callback(state))
+        active = [t for t in [TOPIC_CMD, TOPIC_GRIPPER, TOPIC_RESET, TOPIC_INIT, TOPIC_MODE] if t]
+        print(f"[ROS] 已订阅 {', '.join(active)}")
 
     def unsubscribe_all(self):
         for sub in self._subs:

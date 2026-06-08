@@ -7,6 +7,9 @@ import threading
 import numpy as np
 from scipy.spatial.transform import Rotation
 
+# 约束模式基准朝向：绕 y 轴旋转 90°（end-effector x 轴竖直向下）
+_R_CONSTRAINED = Rotation.from_euler('y', np.pi / 2).as_matrix()
+
 from config import (
     TRANSLATION_SCALE, ROTATION_SCALE,
     WATCHDOG_TIMEOUT, CONTROL_RATE,
@@ -47,6 +50,9 @@ class SharedState:
 
         # 夹爪目标位置 (rad)：0.0=完全闭合，2.0=完全张开；None=尚未收到指令
         self.gripper_cmd: float | None = None
+
+        # 旋转约束模式：False=自由旋转，True=仅允许 x 轴旋转 + 基准朝向 Ry(90°)
+        self.constrained_mode: bool = False
 
         # 物理复位请求（reset 信号）
         self.reset_requested = False
@@ -99,15 +105,44 @@ class SharedState:
             self._pending_twist = None
         return twist
 
+    def set_constrained_mode(self, enabled: bool):
+        """切换旋转约束模式。
+        进入时：target rotation 立即设为 Ry(90°)，arm 平滑跟踪过去。
+        退出时：以当前 smooth rotation 为新的旋转基准，arm 保持原地，用户需重新 grip-init。
+        """
+        with self._lock:
+            prev = self.constrained_mode
+            self.constrained_mode = enabled
+            if enabled and not prev:
+                self.target_rotation = _R_CONSTRAINED.copy()
+            elif not enabled and prev:
+                # 退出约束：以当前到达的旋转为新的 calibration，避免跳变
+                self.calibration_rotation = self._smooth_rotation.copy()
+        if enabled and not prev:
+            print("[State] 进入旋转约束模式 (仅x轴旋转, 基准Ry90°)")
+        elif not enabled and prev:
+            print("[State] 退出旋转约束模式 (自由旋转, 请重新 grip-init 以继续旋转控制)")
+
     def set_target_from_offset(self, linear_xyz, angular_xyz):
-        """位置控制：target = 校准基准 + Pico 偏移量（直接设置，不累加）。"""
+        """位置控制：target = 校准基准 + Pico 偏移量（直接设置，不累加）。
+        约束模式下：旋转仅保留 x 分量，基准朝向固定为 _R_CONSTRAINED。
+        """
         if self.calibration_position is None:
             return
         pos_offset = np.array(linear_xyz) * TRANSLATION_SCALE
-        rot_offset = Rotation.from_rotvec(np.array(angular_xyz) * ROTATION_SCALE).as_matrix()
-        with self._lock:
-            self.target_position = self.calibration_position + pos_offset
-            self.target_rotation = rot_offset @ self.calibration_rotation
+
+        if self.constrained_mode:
+            # 只保留 x 轴旋转，y/z 分量清零
+            filtered = np.array([0.0, 0.0, angular_xyz[2]])
+            rot_offset = Rotation.from_rotvec(filtered * ROTATION_SCALE).as_matrix()
+            with self._lock:
+                self.target_position = self.calibration_position + pos_offset
+                self.target_rotation = rot_offset @ _R_CONSTRAINED
+        else:
+            rot_offset = Rotation.from_rotvec(np.array(angular_xyz) * ROTATION_SCALE).as_matrix()
+            with self._lock:
+                self.target_position = self.calibration_position + pos_offset
+                self.target_rotation = rot_offset @ self.calibration_rotation
 
     def step_smooth_target(self):
         """将 smooth target 向 hard target 步进一个控制周期，返回 (pos, rot) 供 IK 使用。
