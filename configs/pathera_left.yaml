@@ -1,4 +1,6 @@
 motor_config_path: "/home/xuroboticslab/ws/ros/wbcd/configs/robot_param/Follower_left.yaml"
+arm_name: "左臂"
+param_server_port: 8081
 rosbridge:
   host: "localhost"
   port: 9090

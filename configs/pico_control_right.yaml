@@ -54,3 +54,4 @@ topics:
   publish:
     joints:  "/follower_right/joint_states"
     ee:      "/follower_right/end_effector"
+  

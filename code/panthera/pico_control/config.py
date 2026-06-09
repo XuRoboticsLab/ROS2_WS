@@ -48,6 +48,9 @@ DAMPING_RATIO    = float(_cfg["smoothing"]["damping_ratio"])
 JOINT_NAMES = list(_cfg["joints"]["names"])
 
 # ── Topics ────────────────────────────────────
+PARAM_SERVER_PORT = int(_cfg.get("param_server_port", 8080))
+ARM_NAME          = str(_cfg.get("arm_name", "机械臂"))
+
 TOPIC_CMD     = _cfg["topics"]["subscribe"]["cmd"]
 TOPIC_GRIPPER = _cfg["topics"]["subscribe"]["gripper"]
 TOPIC_RESET   = _cfg["topics"]["subscribe"]["reset"]

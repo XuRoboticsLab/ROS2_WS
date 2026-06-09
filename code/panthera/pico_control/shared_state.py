@@ -25,9 +25,9 @@ class SharedState:
         # 每控制周期的速度上限
         self._max_linear_step  = MAX_LINEAR_VEL  / CONTROL_RATE
         self._max_angular_step = MAX_ANGULAR_VEL / CONTROL_RATE
-        # PD 增益（per-cycle）
-        self._kp = TRACKING_GAIN_HZ / CONTROL_RATE
-        self._kd = DAMPING_RATIO * self._kp
+        # Smooth target PD 增益（可运行时调节）
+        self.tracking_gain_hz: float = TRACKING_GAIN_HZ
+        self.damping_ratio:    float = DAMPING_RATIO
 
         # 上一周期误差，用于计算 D 项
         self._prev_linear_error  = np.zeros(3)
@@ -53,6 +53,10 @@ class SharedState:
 
         # 旋转约束模式：False=自由旋转，True=仅允许 x 轴旋转 + 基准朝向 Ry(90°)
         self.constrained_mode: bool = False
+
+        # 可运行时调节的运动缩放参数（由 param_server 更新）
+        self.translation_scale: float = TRANSLATION_SCALE
+        self.rotation_scale:    float = ROTATION_SCALE
 
         # 物理复位请求（reset 信号）
         self.reset_requested = False
@@ -129,17 +133,17 @@ class SharedState:
         """
         if self.calibration_position is None:
             return
-        pos_offset = np.array(linear_xyz) * TRANSLATION_SCALE
+        pos_offset = np.array(linear_xyz) * self.translation_scale
 
         if self.constrained_mode:
-            # 只保留 x 轴旋转，y/z 分量清零
+            # 只保留 z 轴旋转（index 2），x/y 分量清零
             filtered = np.array([0.0, 0.0, angular_xyz[2]])
-            rot_offset = Rotation.from_rotvec(filtered * ROTATION_SCALE).as_matrix()
+            rot_offset = Rotation.from_rotvec(filtered * self.rotation_scale).as_matrix()
             with self._lock:
                 self.target_position = self.calibration_position + pos_offset
                 self.target_rotation = rot_offset @ _R_CONSTRAINED
         else:
-            rot_offset = Rotation.from_rotvec(np.array(angular_xyz) * ROTATION_SCALE).as_matrix()
+            rot_offset = Rotation.from_rotvec(np.array(angular_xyz) * self.rotation_scale).as_matrix()
             with self._lock:
                 self.target_position = self.calibration_position + pos_offset
                 self.target_rotation = rot_offset @ self.calibration_rotation
@@ -150,10 +154,14 @@ class SharedState:
         线性部分：PD 步进 + 速度饱和裁剪；
         旋转部分：旋转向量 PD 步进 + 角速度饱和裁剪（SLERP 方向）。
         """
+        # 每次从可变属性实时计算（由 param_server 实时调节）
+        kp = self.tracking_gain_hz / CONTROL_RATE
+        kd = self.damping_ratio * kp
+
         with self._lock:
             # ── 线性 PD ───────────────────────────────
             err  = self.target_position - self._smooth_position
-            step = self._kp * err + self._kd * (err - self._prev_linear_error)
+            step = kp * err + kd * (err - self._prev_linear_error)
             mag  = np.linalg.norm(step)
             if mag > self._max_linear_step:
                 step = step / mag * self._max_linear_step
@@ -164,7 +172,7 @@ class SharedState:
             r_curr = Rotation.from_matrix(self._smooth_rotation)
             r_tgt  = Rotation.from_matrix(self.target_rotation)
             err_rv = (r_tgt * r_curr.inv()).as_rotvec()
-            omega  = self._kp * err_rv + self._kd * (err_rv - self._prev_angular_error)
+            omega  = kp * err_rv + kd * (err_rv - self._prev_angular_error)
             ang_mag = np.linalg.norm(omega)
             if ang_mag > self._max_angular_step:
                 omega = omega / ang_mag * self._max_angular_step

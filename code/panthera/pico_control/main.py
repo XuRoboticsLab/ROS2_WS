@@ -26,10 +26,12 @@ from config import (
     ROSBRIDGE_HOST, ROSBRIDGE_PORT,
     SAFE_JOINT_POS, SAFE_JOINT_VEL,
     KP, KD,
+    PARAM_SERVER_PORT, ARM_NAME,
 )
 from shared_state import SharedState
 from ros_bridge import RosSubscribers, publisher_thread
 from control_loop import control_loop
+import param_server
 
 
 def init_robot() -> Panthera:
@@ -85,6 +87,9 @@ def main():
     robot.pos_vel_tqe_kp_kd(
         state.last_valid_joint_pos, [0.0] * robot.motor_count, grav, KP, KD
     )
+
+    # 启动参数调节 web 服务器
+    param_server.start(state, port=PARAM_SERVER_PORT, arm_name=ARM_NAME)
 
     # 连接 rosbridge
     print(f"\n[ROS] 连接 {ROSBRIDGE_HOST}:{ROSBRIDGE_PORT}...")
