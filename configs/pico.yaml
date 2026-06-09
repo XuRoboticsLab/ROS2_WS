@@ -38,6 +38,4 @@ topics:
     left_reset:     "/joystick/left/reset"
     right_init:     "/joystick/right/init"
     left_init:      "/joystick/left/init"
-    right_mode:     "/joystick/right/mode"
-    left_mode:      "/joystick/left/mode"
     emergency:      "/joystick/emergency"

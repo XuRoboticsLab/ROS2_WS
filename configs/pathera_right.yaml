@@ -36,7 +36,6 @@ topics:
     cmd:     "/joystick/right/cmd"
     gripper: "/joystick/right/gripper"
     reset:   "/joystick/right/reset"
-    mode:    "/joystick/right/mode"
   publish:
     joints:  "/follower_right/joint_states"
     ee:      "/follower_right/end_effector"

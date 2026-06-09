@@ -55,6 +55,5 @@ TOPIC_CMD     = _cfg["topics"]["subscribe"]["cmd"]
 TOPIC_GRIPPER = _cfg["topics"]["subscribe"]["gripper"]
 TOPIC_RESET   = _cfg["topics"]["subscribe"]["reset"]
 TOPIC_INIT    = _cfg["topics"]["subscribe"].get("init", "")
-TOPIC_MODE    = _cfg["topics"]["subscribe"].get("mode", "")
 TOPIC_JOINTS  = _cfg["topics"]["publish"]["joints"]
 TOPIC_EE      = _cfg["topics"]["publish"]["ee"]

@@ -8,7 +8,6 @@ from config import (
     TOPIC_RIGHT_GRIPPER, TOPIC_LEFT_GRIPPER,
     TOPIC_RIGHT_RESET, TOPIC_LEFT_RESET,
     TOPIC_RIGHT_INIT, TOPIC_LEFT_INIT,
-    TOPIC_RIGHT_MODE, TOPIC_LEFT_MODE,
     TOPIC_EMERGENCY,
 )
 
@@ -25,8 +24,6 @@ class XRRosPublisher:
             "left_reset":    roslibpy.Topic(ros, TOPIC_LEFT_RESET,    "std_msgs/Bool"),
             "right_init":    roslibpy.Topic(ros, TOPIC_RIGHT_INIT,    "std_msgs/Bool"),
             "left_init":     roslibpy.Topic(ros, TOPIC_LEFT_INIT,     "std_msgs/Bool"),
-            "right_mode":    roslibpy.Topic(ros, TOPIC_RIGHT_MODE,    "std_msgs/Bool"),
-            "left_mode":     roslibpy.Topic(ros, TOPIC_LEFT_MODE,     "std_msgs/Bool"),
             "emergency":     roslibpy.Topic(ros, TOPIC_EMERGENCY,     "std_msgs/Bool"),
         }
 
@@ -48,10 +45,6 @@ class XRRosPublisher:
     def publish_init(self, side: str):
         """通知机器人记录当前末端位姿为校准基准（Grip 单击时调用）。"""
         self._pub(f"{side}_init", {"data": True})
-
-    def publish_mode(self, side: str, constrained: bool):
-        """constrained: True=约束模式(仅x轴旋转), False=自由旋转"""
-        self._pub(f"{side}_mode", {"data": bool(constrained)})
 
     def publish_emergency(self, active: bool):
         self._pub("emergency", {"data": active})

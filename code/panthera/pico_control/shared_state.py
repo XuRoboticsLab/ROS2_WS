@@ -51,8 +51,8 @@ class SharedState:
         # 夹爪目标位置 (rad)：0.0=完全闭合，2.0=完全张开；None=尚未收到指令
         self.gripper_cmd: float | None = None
 
-        # 旋转约束模式：False=自由旋转，True=仅允许 x 轴旋转 + 基准朝向 Ry(90°)
-        self.constrained_mode: bool = False
+        # 运动模式：0=自由，1=约束z轴旋转(基准Ry90°)，2=仅平动(基准Ry90°，无旋转)
+        self.motion_mode: int = 0
 
         # 可运行时调节的运动缩放参数（由 param_server 更新）
         self.translation_scale: float = TRANSLATION_SCALE
@@ -109,39 +109,48 @@ class SharedState:
             self._pending_twist = None
         return twist
 
-    def set_constrained_mode(self, enabled: bool):
-        """切换旋转约束模式。
-        进入时：target rotation 立即设为 Ry(90°)，arm 平滑跟踪过去。
-        退出时：以当前 smooth rotation 为新的旋转基准，arm 保持原地，用户需重新 grip-init。
+    def set_motion_mode(self, mode: int):
+        """切换运动模式。
+        0=自由旋转，1=约束z轴旋转(基准Ry90°)，2=仅平动(基准Ry90°，无旋转)。
+        进入受限模式(1/2)：target rotation 立即设为 Ry(90°)，arm 平滑跟踪。
+        返回自由模式(0)：calibration_rotation 更新为当前 smooth rotation，arm 原地不动，
+                         用户需重新 grip-init 继续旋转控制。
         """
+        _LABELS = ["自由旋转", "约束z轴旋转(基准Ry90°)", "仅平动(基准Ry90°)"]
         with self._lock:
-            prev = self.constrained_mode
-            self.constrained_mode = enabled
-            if enabled and not prev:
+            prev = self.motion_mode
+            self.motion_mode = mode
+            if mode != 0 and prev == 0:
                 self.target_rotation = _R_CONSTRAINED.copy()
-            elif not enabled and prev:
-                # 退出约束：以当前到达的旋转为新的 calibration，避免跳变
+            elif mode == 0 and prev != 0:
                 self.calibration_rotation = self._smooth_rotation.copy()
-        if enabled and not prev:
-            print("[State] 进入旋转约束模式 (仅x轴旋转, 基准Ry90°)")
-        elif not enabled and prev:
-            print("[State] 退出旋转约束模式 (自由旋转, 请重新 grip-init 以继续旋转控制)")
+        print(f"[State] 运动模式: {_LABELS[mode]}")
+        if mode == 0 and prev != 0:
+            print("[State] 请重新 grip-init 以继续旋转控制")
 
     def set_target_from_offset(self, linear_xyz, angular_xyz):
         """位置控制：target = 校准基准 + Pico 偏移量（直接设置，不累加）。
-        约束模式下：旋转仅保留 x 分量，基准朝向固定为 _R_CONSTRAINED。
+        mode 1：只保留 z 轴旋转，基准 Ry(90°)。
+        mode 2：无旋转，target rotation 固定为 Ry(90°)。
+        mode 0：自由旋转。
         """
         if self.calibration_position is None:
             return
         pos_offset = np.array(linear_xyz) * self.translation_scale
+        mode = self.motion_mode
 
-        if self.constrained_mode:
+        if mode == 1:
             # 只保留 z 轴旋转（index 2），x/y 分量清零
             filtered = np.array([0.0, 0.0, angular_xyz[2]])
             rot_offset = Rotation.from_rotvec(filtered * self.rotation_scale).as_matrix()
             with self._lock:
                 self.target_position = self.calibration_position + pos_offset
                 self.target_rotation = rot_offset @ _R_CONSTRAINED
+        elif mode == 2:
+            # 仅平动：旋转锁死在 Ry(90°)
+            with self._lock:
+                self.target_position = self.calibration_position + pos_offset
+                self.target_rotation = _R_CONSTRAINED.copy()
         else:
             rot_offset = Rotation.from_rotvec(np.array(angular_xyz) * self.rotation_scale).as_matrix()
             with self._lock:

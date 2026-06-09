@@ -54,9 +54,8 @@ def main():
     print("  Grip 连按两次:    对应臂回零")
     print("  右手 Trigger:     连续控制右夹爪 (松开=张开, 按下=闭合)")
     print("  左手 Trigger:     连续控制左夹爪 (松开=张开, 按下=闭合)")
-    print("  右手 B:           右臂旋转约束模式 开/关 (x轴朝下 + 仅x轴旋转)")
-    print("  左手 Y:           左臂旋转约束模式 开/关 (x轴朝下 + 仅x轴旋转)")
     print("  Ctrl+C:           退出\n")
+    print("  旋转约束模式请在 Flask 页面 (param_server) 切换\n")
 
     # ── 初始化 XRT SDK ────────────────────────
     try:
@@ -81,12 +80,6 @@ def main():
     right_conv  = ArmConverter("右臂")
     left_conv   = ArmConverter("左臂")
 
-    # 约束模式状态（B=右臂, Y=左臂）
-    right_constrained = False
-    left_constrained  = False
-    prev_B = False
-    prev_Y = False
-
     loop_count = 0
 
     print("等待 Pico 4 Ultra 连接...\n")
@@ -102,8 +95,6 @@ def main():
                 left_grip_v   = xrt.get_left_grip()
                 right_trigger = xrt.get_right_trigger()
                 left_trigger  = xrt.get_left_trigger()
-                B_btn         = xrt.get_B_button()   # 右臂约束模式
-                Y_btn         = xrt.get_Y_button()   # 左臂约束模式
             except Exception as e:
                 if loop_count % 500 == 0:
                     print(f"\r[警告] XR 数据读取失败: {e}    ", end="", flush=True)
@@ -138,32 +129,16 @@ def main():
             if l_active and left_conv.is_calibrated:
                 publisher.publish_cmd("left", left_conv.compute_twist(left_pose, headset_pose))
 
-            # ── 旋转约束模式切换（上升沿触发）──────
-            if B_btn and not prev_B:
-                right_constrained = not right_constrained
-                print(f"\n[右臂] 旋转约束模式: {'ON' if right_constrained else 'OFF'}")
-            if Y_btn and not prev_Y:
-                left_constrained = not left_constrained
-                print(f"\n[左臂] 旋转约束模式: {'ON' if left_constrained else 'OFF'}")
-            prev_B = B_btn
-            prev_Y = Y_btn
-
             # ── 发布夹爪 ─────────────────────
             publisher.publish_gripper("right", _trigger_to_gripper_pos(right_trigger))
             publisher.publish_gripper("left",  _trigger_to_gripper_pos(left_trigger))
-
-            # ── 发布旋转约束模式 ──────────────
-            publisher.publish_mode("right", right_constrained)
-            publisher.publish_mode("left",  left_constrained)
 
             # ── 打印状态 (20 Hz) ─────────────
             if loop_count % 50 == 0:
                 r_str = "控制" if (r_active and right_conv.is_calibrated) else "待机"
                 l_str = "控制" if (l_active and left_conv.is_calibrated)  else "待机"
-                r_mode = "约束" if right_constrained else "自由"
-                l_mode = "约束" if left_constrained  else "自由"
-                print(f"\r右:{r_str}[{r_mode}] grip={right_grip_v:.2f} trig={right_trigger:.2f}  "
-                      f"左:{l_str}[{l_mode}] grip={left_grip_v:.2f} trig={left_trigger:.2f}    ",
+                print(f"\r右:{r_str} grip={right_grip_v:.2f} trig={right_trigger:.2f}  "
+                      f"左:{l_str} grip={left_grip_v:.2f} trig={left_trigger:.2f}    ",
                       end="", flush=True)
 
             loop_count += 1

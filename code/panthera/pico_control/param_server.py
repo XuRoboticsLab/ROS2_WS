@@ -39,11 +39,36 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   border-radius:10px;font-size:.93rem;font-weight:500;cursor:pointer;color:var(--text);transition:background .1s}
 .reset:hover{background:#E8E8EA}
 #st{text-align:center;color:var(--muted);font-size:.8rem;margin-top:12px;min-height:18px}
+.mode-group{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mode-opt{border:2px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;
+  text-align:center;transition:border-color .15s,background .15s;user-select:none}
+.mode-opt:hover{border-color:var(--accent)}
+.mode-opt.active{border-color:var(--accent);background:rgba(0,122,255,.08)}
+.mode-title{font-weight:600;font-size:.88rem}
+.mode-desc{color:var(--muted);font-size:.72rem;margin-top:4px;line-height:1.3}
 </style>
 </head>
 <body>
 <h1>{{ arm_name }}</h1>
 <p class="sub">参数实时调节 · 拖动滑块即时生效</p>
+
+<div class="card">
+  <div class="sec">运动模式</div>
+  <div class="mode-group">
+    <div class="mode-opt active" id="opt-0" onclick="setMode(0)">
+      <div class="mode-title">自由</div>
+      <div class="mode-desc">平动 + 全向旋转</div>
+    </div>
+    <div class="mode-opt" id="opt-1" onclick="setMode(1)">
+      <div class="mode-title">约束旋转</div>
+      <div class="mode-desc">Ry90° 基准<br>仅 z 轴旋转</div>
+    </div>
+    <div class="mode-opt" id="opt-2" onclick="setMode(2)">
+      <div class="mode-title">仅平动</div>
+      <div class="mode-desc">Ry90° 基准<br>无旋转</div>
+    </div>
+  </div>
+</div>
 
 <div class="card">
   <div class="sec">运动缩放</div>
@@ -121,13 +146,31 @@ IDS.forEach(id=>{
   });
 });
 
+function updateModeUI(n){
+  document.querySelectorAll('.mode-opt').forEach((el,i)=>el.classList.toggle('active',i===n));
+}
+function setMode(n){
+  updateModeUI(n);
+  send({motion_mode:n});
+}
+
+// 页面加载时同步当前参数
+fetch('/params').then(r=>r.json()).then(d=>{
+  if(d.motion_mode!==undefined) updateModeUI(d.motion_mode);
+  ['tr','ro','tg','dr'].forEach(id=>{
+    const key=KEYS[id], el=document.getElementById('s-'+id);
+    if(d[key]!==undefined){ el.value=d[key]; track(el);
+      document.getElementById('v-'+id).textContent=FMT(d[key],id)+UNIT[id]; }
+  });
+}).catch(()=>{});
+
 function resetAll(){
   IDS.forEach(id=>{
     const el=document.getElementById('s-'+id);
     el.value=DEF[id]; track(el);
     document.getElementById('v-'+id).textContent=FMT(DEF[id],id)+UNIT[id];
   });
-  send({translation_m:DEF.tr,rotation_rad:DEF.ro,kp_scale:DEF.kp,kd_scale:DEF.kd});
+  send({translation_m:DEF.tr,rotation_rad:DEF.ro,tracking_gain_hz:DEF.tg,damping_ratio:DEF.dr});
 }
 </script>
 </body>
@@ -164,10 +207,11 @@ def start(state, port: int, arm_name: str):
     @app.route("/params", methods=["GET"])
     def get_params():
         return jsonify({
-            "translation_m":     state.translation_scale,
-            "rotation_rad":      state.rotation_scale,
-            "tracking_gain_hz":  state.tracking_gain_hz,
-            "damping_ratio":     state.damping_ratio,
+            "translation_m":    state.translation_scale,
+            "rotation_rad":     state.rotation_scale,
+            "tracking_gain_hz": state.tracking_gain_hz,
+            "damping_ratio":    state.damping_ratio,
+            "motion_mode":      state.motion_mode,
         })
 
     @app.route("/params", methods=["POST"])
@@ -181,6 +225,8 @@ def start(state, port: int, arm_name: str):
             state.tracking_gain_hz = float(data["tracking_gain_hz"])
         if "damping_ratio" in data:
             state.damping_ratio = float(data["damping_ratio"])
+        if "motion_mode" in data:
+            state.set_motion_mode(int(data["motion_mode"]))
         return jsonify({"ok": True})
 
     threading.Thread(

@@ -49,5 +49,3 @@ TOPIC_LEFT_RESET    = _cfg["topics"]["publish"]["left_reset"]
 TOPIC_EMERGENCY     = _cfg["topics"]["publish"]["emergency"]
 TOPIC_RIGHT_INIT    = _cfg["topics"]["publish"]["right_init"]
 TOPIC_LEFT_INIT     = _cfg["topics"]["publish"]["left_init"]
-TOPIC_RIGHT_MODE    = _cfg["topics"]["publish"].get("right_mode", "/joystick/right/mode")
-TOPIC_LEFT_MODE     = _cfg["topics"]["publish"].get("left_mode",  "/joystick/left/mode")
