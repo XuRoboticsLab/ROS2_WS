@@ -83,7 +83,7 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
             state.set_target_from_offset(twist[0], twist[1])
 
         # ── 3. Watchdog / 未校准 → hold ──────────
-        if not state.is_calibrated() or not state.is_watchdog_ok():
+        if not state.is_calibrated() or (not state.action_locked and not state.is_watchdog_ok()):
             _hold(robot, state)
             _update_state(robot, state)
             time.sleep(max(0.0, interval - (time.time() - t0)))

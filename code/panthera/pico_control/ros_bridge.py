@@ -37,6 +37,8 @@ def make_cmd_callback(state: SharedState):
 
 def make_gripper_callback(state: SharedState):
     def callback(msg):
+        if state.action_locked:
+            return
         with state._lock:
             state.gripper_cmd = float(msg["data"])
     return callback

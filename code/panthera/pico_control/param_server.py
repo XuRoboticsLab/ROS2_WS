@@ -8,6 +8,27 @@
 
 import logging
 import threading
+import time
+
+import numpy as np
+from scipy.spatial.transform import Rotation
+
+# 预制动作用到的常量旋转
+_R_CONST  = Rotation.from_euler('y',  np.pi / 2).as_matrix()  # Ry(90°) — gripper 竖直向下
+_R_Z_POS  = Rotation.from_euler('z',  np.pi / 2).as_matrix()  # Rz(+90°)
+_R_Z_NEG  = Rotation.from_euler('z', -np.pi / 2).as_matrix()  # Rz(-90°)
+
+
+def _wait_rotation(state, target_rot: np.ndarray,
+                   timeout: float = 6.0, tol: float = 0.08) -> bool:
+    """阻塞直到 smooth_rotation 与 target_rot 误差 < tol rad，或超时返回 False。"""
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if state.rotation_error_magnitude(target_rot) < tol:
+            return True
+        time.sleep(0.05)
+    return False
+
 
 _HTML = """\
 <!DOCTYPE html>
@@ -46,6 +67,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 .mode-opt.active{border-color:var(--accent);background:rgba(0,122,255,.08)}
 .mode-title{font-weight:600;font-size:.88rem}
 .mode-desc{color:var(--muted);font-size:.72rem;margin-top:4px;line-height:1.3}
+.action-btn{display:block;width:100%;padding:14px 16px;background:var(--card);
+  border:2px solid var(--border);border-radius:12px;cursor:pointer;text-align:left;
+  transition:border-color .15s,background .15s;margin-bottom:10px}
+.action-btn:last-child{margin-bottom:0}
+.action-btn:hover:not(:disabled){border-color:var(--accent);background:rgba(0,122,255,.06)}
+.action-btn:disabled{opacity:.5;cursor:not-allowed}
+.action-btn .an{display:block;font-weight:600;font-size:.95rem;color:var(--text)}
+.action-btn .ad{display:block;font-size:.75rem;color:var(--muted);margin-top:3px}
 </style>
 </head>
 <body>
@@ -112,6 +141,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   </div>
 </div>
 
+<div class="card">
+  <div class="sec">预制动作</div>
+  <button class="action-btn" id="btn-screw" onclick="runAction('screw_cap','btn-screw')">
+    <span class="an">扭瓶盖 ×3</span>
+    <span class="ad">先对齐 Ry90° → 合爪 → z+90° → 松爪 → z−90°，重复三次</span>
+  </button>
+</div>
+
 <button class="reset" onclick="resetAll()">↩ 恢复默认值</button>
 <div id="st"></div>
 
@@ -172,6 +209,31 @@ function resetAll(){
   });
   send({translation_m:DEF.tr,rotation_rad:DEF.ro,tracking_gain_hz:DEF.tg,damping_ratio:DEF.dr});
 }
+
+let _actionPoll = null;
+async function runAction(name, btnId){
+  const btn = document.getElementById(btnId);
+  const origName = btn.querySelector('.an').textContent;
+  btn.disabled = true;
+  btn.querySelector('.an').textContent = '执行中…';
+  setStatus('动作开始');
+  try {
+    const r = await fetch('/actions/'+name, {method:'POST'});
+    const d = await r.json();
+    if(!d.ok){ setStatus('启动失败: '+(d.error||'')); resetActionBtn(btn,origName); return; }
+    _actionPoll = setInterval(async ()=>{
+      try {
+        const s = await (await fetch('/action_status')).json();
+        if(!s.running){
+          clearInterval(_actionPoll); _actionPoll=null;
+          resetActionBtn(btn,origName);
+          setStatus('动作完成 '+new Date().toLocaleTimeString());
+        }
+      } catch { clearInterval(_actionPoll); _actionPoll=null; resetActionBtn(btn,origName); }
+    }, 400);
+  } catch(e){ setStatus('请求失败: '+e.message); resetActionBtn(btn,origName); }
+}
+function resetActionBtn(btn,name){ btn.disabled=false; btn.querySelector('.an').textContent=name; }
 </script>
 </body>
 </html>
@@ -228,6 +290,43 @@ def start(state, port: int, arm_name: str):
         if "motion_mode" in data:
             state.set_motion_mode(int(data["motion_mode"]))
         return jsonify({"ok": True})
+
+    action_running = [False]
+
+    def _run_screw_cap_thread():
+        try:
+            state.action_locked = True
+            with state._lock:
+                state.target_rotation = _R_CONST.copy()
+            _wait_rotation(state, _R_CONST, timeout=6.0)
+            for _ in range(3):
+                state.gripper_cmd = 0.0
+                time.sleep(1.5)
+                target = _R_Z_POS @ _R_CONST
+                with state._lock:
+                    state.target_rotation = target.copy()
+                _wait_rotation(state, target)
+                state.gripper_cmd = 2.0
+                time.sleep(3.0)
+                with state._lock:
+                    state.target_rotation = _R_CONST.copy()
+                _wait_rotation(state, _R_CONST)
+        finally:
+            state.action_locked = False
+            action_running[0] = False
+
+    @app.route("/actions/screw_cap", methods=["POST"])
+    def action_screw_cap():
+        if action_running[0]:
+            return jsonify({"ok": False, "error": "already running"}), 409
+        action_running[0] = True
+        threading.Thread(target=_run_screw_cap_thread, daemon=True,
+                         name="ScrewCapAction").start()
+        return jsonify({"ok": True})
+
+    @app.route("/action_status", methods=["GET"])
+    def action_status():
+        return jsonify({"running": action_running[0]})
 
     threading.Thread(
         target=lambda: app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False),

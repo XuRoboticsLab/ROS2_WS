@@ -58,6 +58,9 @@ class SharedState:
         self.translation_scale: float = TRANSLATION_SCALE
         self.rotation_scale:    float = ROTATION_SCALE
 
+        # 预制动作执行期间锁住 Pico 输入
+        self.action_locked: bool = False
+
         # 物理复位请求（reset 信号）
         self.reset_requested = False
 
@@ -75,6 +78,18 @@ class SharedState:
 
         # 上一次有效 IK 结果
         self.last_valid_joint_pos = [0.0] * 6
+
+    # ── 动作辅助 ──────────────────────────────────
+    def rotation_error_magnitude(self, target_rot: np.ndarray) -> float:
+        """返回当前 smooth rotation 与目标之间的旋转角度差（rad）。"""
+        with self._lock:
+            r_cur = Rotation.from_matrix(self._smooth_rotation)
+        return (Rotation.from_matrix(target_rot) * r_cur.inv()).magnitude()
+
+    def gripper_error(self, target_pos: float) -> float:
+        """返回当前 gripper 位置与目标之间的绝对误差（rad）。"""
+        with self._lock:
+            return abs(self.gripper_position - target_pos)
 
     # ── Calibration ────────────────────────────
     def set_calibration_pose(self, pos, rot):
@@ -134,7 +149,7 @@ class SharedState:
         mode 2：无旋转，target rotation 固定为 Ry(90°)。
         mode 0：自由旋转。
         """
-        if self.calibration_position is None:
+        if self.action_locked or self.calibration_position is None:
             return
         pos_offset = np.array(linear_xyz) * self.translation_scale
         mode = self.motion_mode
