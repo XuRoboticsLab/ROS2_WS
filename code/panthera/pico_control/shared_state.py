@@ -48,8 +48,8 @@ class SharedState:
         # 待处理的 Pico 偏移量（位置控制：取最新值，不累加）
         self._pending_twist = None
 
-        # 夹爪目标位置 (rad)：0.0=完全闭合，2.0=完全张开；None=尚未收到指令
-        self.gripper_cmd: float | None = None
+        # 夹爪指令：1=open，-1=close，0=idle
+        self.gripper_cmd = 0
 
         # 运动模式：0=自由，1=约束z轴旋转(基准Ry90°)，2=仅平动(基准Ry90°，无旋转)
         self.motion_mode: int = 0

@@ -40,7 +40,7 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
 
     逻辑：
       1. 物理复位（最高优先级）：移到安全位置，重置 target
-      2. 夹爪连续控制：gripper_control(pos, vel, tqu)，跟随 Pico trigger 值
+      2. 夹爪指令：gripper_open / gripper_close（独立于校准状态）
       3. 消费 Pico 偏移量 → 更新 hard target（校准基准 + 偏移量）
       4. Watchdog 超时 或 尚未校准 → hold
       5. Smooth target 步进（PD + 速度限幅）→ IK → pos_vel_tqe_kp_kd
@@ -70,12 +70,15 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
             time.sleep(max(0.0, interval - (time.time() - t0)))
             continue
 
-        # ── 2. 夹爪连续位置控制 ──────────────────
+        # ── 2. 夹爪指令 ──────────────────────────
         with state._lock:
-            gripper_pos = state.gripper_cmd  # float | None，保持最新值不重置
+            gripper_cmd       = state.gripper_cmd
+            state.gripper_cmd = 0
 
-        if gripper_pos is not None:
-            robot.gripper_control(pos=gripper_pos, vel=0.5, max_tqu=0.5)
+        if gripper_cmd == 1:
+            robot.gripper_open()
+        elif gripper_cmd == -1:
+            robot.gripper_close()
 
         # ── 3. 消费 Pico 偏移量 ──────────────────
         twist = state.pop_twist()
