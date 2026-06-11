@@ -29,7 +29,7 @@ except ImportError:
     print("错误: xrobotoolkit_sdk 未安装，请确认在正确的 conda 环境中运行")
     sys.exit(1)
 
-from config import ROSBRIDGE_HOST, ROSBRIDGE_PORT, GRIP_THRESHOLD
+from config import ROSBRIDGE_HOST, ROSBRIDGE_PORT, GRIP_THRESHOLD, AXIS_THRESHOLD
 from utils import GripDetector, ArmConverter
 from ros_publisher import XRRosPublisher
 
@@ -97,6 +97,8 @@ def main():
                 A_btn        = xrt.get_A_button()   # 右手关
                 Y_btn        = xrt.get_Y_button()   # 左手开
                 X_btn        = xrt.get_X_button()   # 左手关
+                right_axis   = list(xrt.get_right_axis())  # [x, y] 归一化 -1~1
+                left_axis    = list(xrt.get_left_axis())   # [x, y] 归一化 -1~1
             except Exception as e:
                 if loop_count % 500 == 0:
                     print(f"\r[警告] XR 数据读取失败: {e}    ", end="", flush=True)
@@ -134,6 +136,23 @@ def main():
             # ── 发布夹爪 ─────────────────────
             publisher.publish_gripper("right", _button_gripper_value(B_btn, A_btn))
             publisher.publish_gripper("left",  _button_gripper_value(Y_btn, X_btn))
+
+            # ── 操纵杆精细控制（Grip 未激活时）────
+            if not r_active:
+                rx, ry = right_axis[0], right_axis[1]
+                if max(abs(rx), abs(ry)) > AXIS_THRESHOLD:
+                    if abs(rx) >= abs(ry):
+                        publisher.publish_fine_cmd("right", rx, 0.0)
+                    else:
+                        publisher.publish_fine_cmd("right", 0.0, ry)
+
+            if not l_active:
+                lx, ly = left_axis[0], left_axis[1]
+                if max(abs(lx), abs(ly)) > AXIS_THRESHOLD:
+                    if abs(lx) >= abs(ly):
+                        publisher.publish_fine_cmd("left", lx, 0.0)
+                    else:
+                        publisher.publish_fine_cmd("left", 0.0, ly)
 
             # ── 打印状态 (20 Hz) ─────────────
             if loop_count % 50 == 0:

@@ -28,6 +28,9 @@ coord_mapping:
         [0, 1, 0]]
   rot_sign: [1, 1, 1]
 
+joystick:
+  axis_threshold: 0.15   # 操纵杆死区：低于此值视为零输入（防误触）
+
 topics:
   publish:
     right_cmd:      "/joystick/right/cmd"
@@ -39,3 +42,5 @@ topics:
     right_init:     "/joystick/right/init"
     left_init:      "/joystick/left/init"
     emergency:      "/joystick/emergency"
+    right_fine_cmd: "/joystick/right/fine_cmd"   # 操纵杆精细控制（不按 Grip 时）
+    left_fine_cmd:  "/joystick/left/fine_cmd"

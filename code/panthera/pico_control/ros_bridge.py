@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 from config import (
     PUBLISH_RATE,
     JOINT_NAMES,
-    TOPIC_CMD, TOPIC_GRIPPER, TOPIC_RESET, TOPIC_INIT,
+    TOPIC_CMD, TOPIC_GRIPPER, TOPIC_RESET, TOPIC_INIT, TOPIC_FINE_CMD,
     TOPIC_JOINTS, TOPIC_EE,
 )
 from shared_state import SharedState
@@ -64,6 +64,14 @@ def make_init_callback(state: SharedState):
     return callback
 
 
+def make_fine_cmd_callback(state: SharedState):
+    """操纵杆精细控制：接收归一化轴值 [x, y]（不按 Grip 时）。"""
+    def callback(msg):
+        l = msg["linear"]
+        state.push_fine_delta([l["x"], l["y"]])
+    return callback
+
+
 # ─────────────────────────────────────────────
 #  订阅管理
 # ─────────────────────────────────────────────
@@ -78,11 +86,12 @@ class RosSubscribers:
             t.subscribe(cb)
             self._subs.append(t)
 
-        _sub(TOPIC_CMD,     "geometry_msgs/Twist", make_cmd_callback(state))
-        _sub(TOPIC_GRIPPER, "std_msgs/Int8",       make_gripper_callback(state))
-        _sub(TOPIC_RESET,   "std_msgs/Bool",       make_reset_callback(state))
-        _sub(TOPIC_INIT,    "std_msgs/Bool",       make_init_callback(state))
-        active = [t for t in [TOPIC_CMD, TOPIC_GRIPPER, TOPIC_RESET, TOPIC_INIT] if t]
+        _sub(TOPIC_CMD,      "geometry_msgs/Twist", make_cmd_callback(state))
+        _sub(TOPIC_GRIPPER,  "std_msgs/Int8",       make_gripper_callback(state))
+        _sub(TOPIC_RESET,    "std_msgs/Bool",       make_reset_callback(state))
+        _sub(TOPIC_INIT,     "std_msgs/Bool",       make_init_callback(state))
+        _sub(TOPIC_FINE_CMD, "geometry_msgs/Twist", make_fine_cmd_callback(state))
+        active = [t for t in [TOPIC_CMD, TOPIC_GRIPPER, TOPIC_RESET, TOPIC_INIT, TOPIC_FINE_CMD] if t]
         print(f"[ROS] 已订阅 {', '.join(active)}")
 
     def unsubscribe_all(self):

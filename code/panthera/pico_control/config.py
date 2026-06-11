@@ -51,9 +51,13 @@ JOINT_NAMES = list(_cfg["joints"]["names"])
 PARAM_SERVER_PORT = int(_cfg.get("param_server_port", 8080))
 ARM_NAME          = str(_cfg.get("arm_name", "机械臂"))
 
-TOPIC_CMD     = _cfg["topics"]["subscribe"]["cmd"]
-TOPIC_GRIPPER = _cfg["topics"]["subscribe"]["gripper"]
-TOPIC_RESET   = _cfg["topics"]["subscribe"]["reset"]
-TOPIC_INIT    = _cfg["topics"]["subscribe"].get("init", "")
-TOPIC_JOINTS  = _cfg["topics"]["publish"]["joints"]
-TOPIC_EE      = _cfg["topics"]["publish"]["ee"]
+# ── 操纵杆精细控制 ────────────────────────────
+FINE_SCALE     = float(_cfg.get("fine_control", {}).get("scale_m_per_s", 0.1))
+
+TOPIC_CMD      = _cfg["topics"]["subscribe"]["cmd"]
+TOPIC_GRIPPER  = _cfg["topics"]["subscribe"]["gripper"]
+TOPIC_RESET    = _cfg["topics"]["subscribe"]["reset"]
+TOPIC_INIT     = _cfg["topics"]["subscribe"].get("init", "")
+TOPIC_FINE_CMD = _cfg["topics"]["subscribe"].get("fine_cmd", "")
+TOPIC_JOINTS   = _cfg["topics"]["publish"]["joints"]
+TOPIC_EE       = _cfg["topics"]["publish"]["ee"]

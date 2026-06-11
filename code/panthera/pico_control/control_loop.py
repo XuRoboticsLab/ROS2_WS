@@ -6,7 +6,7 @@ import time
 import threading
 import numpy as np
 
-from config import CONTROL_RATE, KP, KD, IK_MAX_JOINT_STEP, SAFE_JOINT_POS, SAFE_JOINT_VEL
+from config import CONTROL_RATE, KP, KD, IK_MAX_JOINT_STEP, SAFE_JOINT_POS, SAFE_JOINT_VEL, FINE_SCALE
 from shared_state import SharedState
 
 
@@ -85,14 +85,19 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
         if twist is not None:
             state.set_target_from_offset(twist[0], twist[1])
 
-        # ── 3. Watchdog / 未校准 → hold ──────────
+        # ── 3.5. 操纵杆精细控制（不按 Grip 时）───
+        fine = state.pop_fine_delta()
+        if fine is not None:
+            state.apply_fine_delta_to_target(fine, FINE_SCALE / CONTROL_RATE)
+
+        # ── 4. Watchdog / 未校准 → hold ──────────
         if not state.is_calibrated() or (not state.action_locked and not state.is_watchdog_ok()):
             _hold(robot, state)
             _update_state(robot, state)
             time.sleep(max(0.0, interval - (time.time() - t0)))
             continue
 
-        # ── 4. Smooth target 步进 → IK ───────────
+        # ── 5. Smooth target 步进 → IK ───────────
         target_pos, target_rot = state.step_smooth_target()
 
         joint_pos = robot.inverse_kinematics(

@@ -48,6 +48,9 @@ class SharedState:
         # 待处理的 Pico 偏移量（位置控制：取最新值，不累加）
         self._pending_twist = None
 
+        # 待处理的操纵杆精细控制输入（取最新值，不累加）
+        self._pending_fine_delta = None
+
         # 夹爪指令：1=open，-1=close，0=idle
         self.gripper_cmd = 0
 
@@ -123,6 +126,26 @@ class SharedState:
             twist = self._pending_twist
             self._pending_twist = None
         return twist
+
+    def push_fine_delta(self, xy):
+        """接收操纵杆精细控制输入（归一化轴值 [x, y]）。"""
+        with self._lock:
+            self._pending_fine_delta = np.array(xy[:2], dtype=float)
+            self.last_cmd_time = time.time()
+
+    def pop_fine_delta(self):
+        with self._lock:
+            delta = self._pending_fine_delta
+            self._pending_fine_delta = None
+        return delta
+
+    def apply_fine_delta_to_target(self, axis_xy, scale_per_step: float):
+        """操纵杆轴值 × scale_per_step 叠加到 target_position 的 x/y 分量。"""
+        if self.action_locked or self.calibration_position is None:
+            return
+        with self._lock:
+            self.target_position[0] += axis_xy[1] * scale_per_step  # VR y → robot x
+            self.target_position[1] -= axis_xy[0] * scale_per_step  # VR x → robot y
 
     def set_motion_mode(self, mode: int):
         """切换运动模式。
