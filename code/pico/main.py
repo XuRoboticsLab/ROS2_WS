@@ -34,13 +34,15 @@ from utils import GripDetector, ArmConverter
 from ros_publisher import XRRosPublisher
 
 
-def _button_gripper_value(open_btn: bool, close_btn: bool) -> int:
-    """open_btn → 1 (open), close_btn → -1 (close), 均未按 → 0 (idle)"""
-    if open_btn:
-        return 1
-    elif close_btn:
-        return -1
-    return 0
+GRIPPER_MAX_RAD = 2.0  # 完全张开 (rad)
+
+
+def _trigger_to_gripper_pos(trigger: float) -> float:
+    """trigger [0, 1] → gripper position [0.0, 2.0] rad
+    松开 trigger (0) = 夹爪张开 (2.0 rad)
+    按下 trigger (1) = 夹爪闭合 (0.0 rad)
+    """
+    return (1.0 - max(0.0, min(1.0, trigger))) * GRIPPER_MAX_RAD
 
 
 def main():
@@ -50,10 +52,8 @@ def main():
     print("  右手 Grip 按住:   控制右臂")
     print("  左手 Grip 按住:   控制左臂")
     print("  Grip 连按两次:    对应臂回零")
-    print("  右手 B:           右夹爪张开")
-    print("  右手 A:           右夹爪闭合")
-    print("  左手 Y:           左夹爪张开")
-    print("  左手 X:           左夹爪闭合")
+    print("  右手 Trigger:     连续控制右夹爪 (松开=张开, 按下=闭合)")
+    print("  左手 Trigger:     连续控制左夹爪 (松开=张开, 按下=闭合)")
     print("  Ctrl+C:           退出\n")
     print("  旋转约束模式请在 Flask 页面 (param_server) 切换\n")
 
@@ -91,12 +91,10 @@ def main():
                 right_pose   = list(xrt.get_right_controller_pose())
                 left_pose    = list(xrt.get_left_controller_pose())
                 headset_pose = list(xrt.get_headset_pose())
-                right_grip_v = xrt.get_right_grip()
-                left_grip_v  = xrt.get_left_grip()
-                B_btn        = xrt.get_B_button()   # 右手开
-                A_btn        = xrt.get_A_button()   # 右手关
-                Y_btn        = xrt.get_Y_button()   # 左手开
-                X_btn        = xrt.get_X_button()   # 左手关
+                right_grip_v  = xrt.get_right_grip()
+                left_grip_v   = xrt.get_left_grip()
+                right_trigger = xrt.get_right_trigger()
+                left_trigger  = xrt.get_left_trigger()
                 right_axis   = list(xrt.get_right_axis())  # [x, y] 归一化 -1~1
                 left_axis    = list(xrt.get_left_axis())   # [x, y] 归一化 -1~1
             except Exception as e:
@@ -134,8 +132,8 @@ def main():
                 publisher.publish_cmd("left", left_conv.compute_twist(left_pose, headset_pose))
 
             # ── 发布夹爪 ─────────────────────
-            publisher.publish_gripper("right", _button_gripper_value(B_btn, A_btn))
-            publisher.publish_gripper("left",  _button_gripper_value(Y_btn, X_btn))
+            publisher.publish_gripper("right", _trigger_to_gripper_pos(right_trigger))
+            publisher.publish_gripper("left",  _trigger_to_gripper_pos(left_trigger))
 
             # ── 操纵杆精细控制（Grip 未激活时）────
             if not r_active:
@@ -158,8 +156,8 @@ def main():
             if loop_count % 50 == 0:
                 r_str = "控制" if (r_active and right_conv.is_calibrated) else "待机"
                 l_str = "控制" if (l_active and left_conv.is_calibrated)  else "待机"
-                print(f"\r右:{r_str} grip={right_grip_v:.2f}  "
-                      f"左:{l_str} grip={left_grip_v:.2f}    ",
+                print(f"\r右:{r_str} grip={right_grip_v:.2f} trig={right_trigger:.2f}  "
+                      f"左:{l_str} grip={left_grip_v:.2f} trig={left_trigger:.2f}    ",
                       end="", flush=True)
 
             loop_count += 1
