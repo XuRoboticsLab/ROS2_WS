@@ -9,6 +9,8 @@ from scipy.spatial.transform import Rotation
 
 # 约束模式基准朝向：绕 y 轴旋转 90°（end-effector x 轴竖直向下）
 _R_CONSTRAINED = Rotation.from_euler('y', np.pi / 2).as_matrix()
+# 无初始旋转基准：恒等变换
+_R_FREE = np.eye(3, dtype=float)
 
 from config import (
     TRANSLATION_SCALE, ROTATION_SCALE,
@@ -55,7 +57,7 @@ class SharedState:
         # 夹爪目标位置 (rad)：0.0=完全闭合，2.0=完全张开；None=尚未收到指令
         self.gripper_cmd: float | None = None
 
-        # 运动模式：0=自由，1=约束z轴旋转(基准Ry90°)，2=仅平动(基准Ry90°，无旋转)
+        # 运动模式：0=自由，1=约束z轴旋转(基准Ry90°)，2=仅平动(基准Ry90°，无旋转)，3=约束z轴旋转(无初始旋转)
         self.motion_mode: int = 0
 
         # 可运行时调节的运动缩放参数（由 param_server 更新）
@@ -170,17 +172,20 @@ class SharedState:
 
     def set_motion_mode(self, mode: int):
         """切换运动模式。
-        0=自由旋转，1=约束z轴旋转(基准Ry90°)，2=仅平动(基准Ry90°，无旋转)。
-        进入受限模式(1/2)：target rotation 立即设为 Ry(90°)，arm 平滑跟踪。
+        0=自由旋转，1=约束z轴旋转(基准Ry90°)，2=仅平动(基准Ry90°，无旋转)，3=约束z轴旋转(无初始旋转)。
+        进入模式1/2：target rotation 立即设为 Ry(90°)，arm 平滑跟踪。
+        进入模式3：target rotation 立即设为恒等（无旋转），arm 平滑跟踪。
         返回自由模式(0)：calibration_rotation 更新为当前 smooth rotation，arm 原地不动，
                          用户需重新 grip-init 继续旋转控制。
         """
-        _LABELS = ["自由旋转", "约束z轴旋转(基准Ry90°)", "仅平动(基准Ry90°)"]
+        _LABELS = ["自由旋转", "约束z轴旋转(基准Ry90°)", "仅平动(基准Ry90°)", "约束z轴旋转(无初始旋转)"]
         with self._lock:
             prev = self.motion_mode
             self.motion_mode = mode
-            if mode != 0 and prev == 0:
+            if mode in (1, 2) and prev not in (1, 2):
                 self.target_rotation = _R_CONSTRAINED.copy()
+            elif mode == 3 and prev != 3:
+                self.target_rotation = _R_FREE.copy()
             elif mode == 0 and prev != 0:
                 self.calibration_rotation = self._smooth_rotation.copy()
         print(f"[State] 运动模式: {_LABELS[mode]}")
@@ -198,13 +203,14 @@ class SharedState:
         pos_offset = np.array(linear_xyz) * self.translation_scale
         mode = self.motion_mode
 
-        if mode == 1:
+        if mode in (1, 3):
             # 只保留 z 轴旋转（index 2），x/y 分量清零
             filtered = np.array([0.0, 0.0, angular_xyz[2]])
             rot_offset = Rotation.from_rotvec(filtered * self.rotation_scale).as_matrix()
+            base = _R_CONSTRAINED if mode == 1 else _R_FREE
             with self._lock:
                 self.target_position = self.calibration_position + pos_offset
-                self.target_rotation = rot_offset @ _R_CONSTRAINED
+                self.target_rotation = rot_offset @ base
         elif mode == 2:
             # 仅平动：旋转锁死在 Ry(90°)
             with self._lock:

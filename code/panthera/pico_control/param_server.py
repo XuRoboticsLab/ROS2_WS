@@ -60,7 +60,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   border-radius:10px;font-size:.93rem;font-weight:500;cursor:pointer;color:var(--text);transition:background .1s}
 .reset:hover{background:#E8E8EA}
 #st{text-align:center;color:var(--muted);font-size:.8rem;margin-top:12px;min-height:18px}
-.mode-group{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mode-group{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .mode-opt{border:2px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;
   text-align:center;transition:border-color .15s,background .15s;user-select:none}
 .mode-opt:hover{border-color:var(--accent)}
@@ -95,6 +95,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     <div class="mode-opt" id="opt-2" onclick="setMode(2)">
       <div class="mode-title">仅平动</div>
       <div class="mode-desc">Ry90° 基准<br>无旋转</div>
+    </div>
+    <div class="mode-opt" id="opt-3" onclick="setMode(3)">
+      <div class="mode-title">Z旋转</div>
+      <div class="mode-desc">无初始旋转<br>仅 z 轴旋转</div>
     </div>
   </div>
 </div>
@@ -218,7 +222,7 @@ IDS.forEach(id=>{
 });
 
 function updateModeUI(n){
-  [0,1,2].forEach(i=>document.getElementById('opt-'+i).classList.toggle('active',i===n));
+  [0,1,2,3].forEach(i=>document.getElementById('opt-'+i).classList.toggle('active',i===n));
 }
 function setMode(n){
   updateModeUI(n);
