@@ -46,7 +46,8 @@ joints:
 
 # 操纵杆精细控制（不按 Grip 时）：操纵杆轴值（-1~1）× scale_m_per_s / control_hz = 每步位移
 fine_control:
-  scale_m_per_s: 0.1   # 满偏时末端线速度 (m/s)
+  scale_m_per_s: 0.1            # 模式0：满偏时末端线速度 (m/s)
+  rotation_scale_rad_per_s: 0.5 # 模式1：满偏时绕z轴角速度 (rad/s)
 
 topics:
   subscribe:

@@ -52,7 +52,8 @@ PARAM_SERVER_PORT = int(_cfg.get("param_server_port", 8080))
 ARM_NAME          = str(_cfg.get("arm_name", "机械臂"))
 
 # ── 操纵杆精细控制 ────────────────────────────
-FINE_SCALE     = float(_cfg.get("fine_control", {}).get("scale_m_per_s", 0.1))
+FINE_SCALE          = float(_cfg.get("fine_control", {}).get("scale_m_per_s", 0.1))
+FINE_ROTATION_SCALE = float(_cfg.get("fine_control", {}).get("rotation_scale_rad_per_s", 0.5))
 
 TOPIC_CMD      = _cfg["topics"]["subscribe"]["cmd"]
 TOPIC_GRIPPER  = _cfg["topics"]["subscribe"]["gripper"]

@@ -6,7 +6,7 @@ import time
 import threading
 import numpy as np
 
-from config import CONTROL_RATE, KP, KD, IK_MAX_JOINT_STEP, SAFE_JOINT_POS, SAFE_JOINT_VEL, FINE_SCALE
+from config import CONTROL_RATE, KP, KD, IK_MAX_JOINT_STEP, SAFE_JOINT_POS, SAFE_JOINT_VEL
 from shared_state import SharedState
 
 
@@ -85,7 +85,7 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
         # ── 3.5. 操纵杆精细控制（不按 Grip 时）───
         fine = state.pop_fine_delta()
         if fine is not None:
-            state.apply_fine_delta_to_target(fine, FINE_SCALE / CONTROL_RATE)
+            state.apply_fine_delta_to_target(fine)
 
         # ── 4. Watchdog / 未校准 → hold ──────────
         if not state.is_calibrated() or (not state.action_locked and not state.is_watchdog_ok()):

@@ -15,6 +15,7 @@ from config import (
     WATCHDOG_TIMEOUT, CONTROL_RATE,
     TRACKING_GAIN_HZ, DAMPING_RATIO,
     MAX_LINEAR_VEL, MAX_ANGULAR_VEL,
+    FINE_SCALE, FINE_ROTATION_SCALE,
 )
 
 
@@ -58,8 +59,12 @@ class SharedState:
         self.motion_mode: int = 0
 
         # 可运行时调节的运动缩放参数（由 param_server 更新）
-        self.translation_scale: float = TRANSLATION_SCALE
-        self.rotation_scale:    float = ROTATION_SCALE
+        self.translation_scale:    float = TRANSLATION_SCALE
+        self.rotation_scale:       float = ROTATION_SCALE
+        # 操纵杆精细控制参数
+        self.fine_mode:            int   = 0           # 0=世界XY平动, 1=Z旋转, 2=EEF XY平动
+        self.fine_scale:           float = FINE_SCALE
+        self.fine_rotation_scale:  float = FINE_ROTATION_SCALE
 
         # 预制动作执行期间锁住 Pico 输入
         self.action_locked: bool = False
@@ -139,13 +144,29 @@ class SharedState:
             self._pending_fine_delta = None
         return delta
 
-    def apply_fine_delta_to_target(self, axis_xy, scale_per_step: float):
-        """操纵杆轴值 × scale_per_step 叠加到 target_position 的 x/y 分量。"""
+    def apply_fine_delta_to_target(self, axis_xy):
+        """操纵杆精细控制：按 fine_mode 分支更新 target。
+        mode 0：VR x/y → 机械臂 y/x 平动（世界坐标系）。
+        mode 1：VR x → 绕世界 z 轴旋转。
+        mode 2：VR x/y → 沿 EEF 坐标系 y/x 轴平动。
+        """
         if self.action_locked or self.calibration_position is None:
             return
         with self._lock:
-            self.target_position[0] += axis_xy[1] * scale_per_step  # VR y → robot x
-            self.target_position[1] -= axis_xy[0] * scale_per_step  # VR x → robot y
+            if self.fine_mode == 0:
+                step = self.fine_scale / CONTROL_RATE
+                self.target_position[0] += axis_xy[1] * step   # VR y → robot x
+                self.target_position[1] -= axis_xy[0] * step   # VR x → robot y
+            elif self.fine_mode == 1:
+                angle = axis_xy[0] * self.fine_rotation_scale / CONTROL_RATE
+                r_delta = Rotation.from_euler('z', angle).as_matrix()
+                self.target_rotation = r_delta @ self.target_rotation
+            else:
+                step = self.fine_scale / CONTROL_RATE
+                eef_x = self.target_rotation[:, 0]
+                eef_y = self.target_rotation[:, 1]
+                self.target_position += axis_xy[1] * step * eef_x   # VR y → EEF x
+                self.target_position -= axis_xy[0] * step * eef_y   # VR x → EEF y
 
     def set_motion_mode(self, mode: int):
         """切换运动模式。

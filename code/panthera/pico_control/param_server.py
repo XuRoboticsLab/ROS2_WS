@@ -142,6 +142,40 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 </div>
 
 <div class="card">
+  <div class="sec">操纵杆精细控制</div>
+  <div class="mode-group" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+    <div class="mode-opt active" id="fopt-0" onclick="setFineMode(0)">
+      <div class="mode-title">XY 平动</div>
+      <div class="mode-desc">世界坐标系<br>x/y 方向平移</div>
+    </div>
+    <div class="mode-opt" id="fopt-1" onclick="setFineMode(1)">
+      <div class="mode-title">Z 旋转</div>
+      <div class="mode-desc">世界坐标系<br>绕 z 轴旋转</div>
+    </div>
+    <div class="mode-opt" id="fopt-2" onclick="setFineMode(2)">
+      <div class="mode-title">EEF 平动</div>
+      <div class="mode-desc">末端坐标系<br>x/y 方向平移</div>
+    </div>
+  </div>
+  <div class="param">
+    <div class="prow">
+      <span class="plabel">平动速度 <code>fine_scale</code></span>
+      <span class="pval" id="v-fs">{{ "%.3f"|format(fs_def) }} m/s</span>
+    </div>
+    <input type="range" id="s-fs" min="0.01" max="0.5" step="0.01" value="{{ fs_def }}">
+    <div class="rlabels"><span>0.01</span><span>0.5 m/s</span></div>
+  </div>
+  <div class="param">
+    <div class="prow">
+      <span class="plabel">旋转速度 <code>fine_rotation_scale</code></span>
+      <span class="pval" id="v-fr">{{ "%.2f"|format(fr_def) }} rad/s</span>
+    </div>
+    <input type="range" id="s-fr" min="0.05" max="3.0" step="0.05" value="{{ fr_def }}">
+    <div class="rlabels"><span>0.05</span><span>3.0 rad/s</span></div>
+  </div>
+</div>
+
+<div class="card">
   <div class="sec">预制动作</div>
   <button class="action-btn" id="btn-screw" onclick="runAction('screw_cap','btn-screw')">
     <span class="an">扭瓶盖 ×3</span>
@@ -153,11 +187,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 <div id="st"></div>
 
 <script>
-const DEF = { tr:{{ tr_def }}, ro:{{ ro_def }}, tg:{{ tg_def }}, dr:{{ dr_def }} };
-const IDS  = ['tr','ro','tg','dr'];
-const KEYS = { tr:'translation_m', ro:'rotation_rad', tg:'tracking_gain_hz', dr:'damping_ratio' };
-const UNIT = { tr:'', ro:'', tg:' Hz', dr:'' };
-const FMT  = (v, id) => id==='tg' ? v.toFixed(1) : id==='dr' ? v.toFixed(2) : v.toFixed(3);
+const DEF = { tr:{{ tr_def }}, ro:{{ ro_def }}, tg:{{ tg_def }}, dr:{{ dr_def }}, fs:{{ fs_def }}, fr:{{ fr_def }} };
+const IDS  = ['tr','ro','tg','dr','fs','fr'];
+const KEYS = { tr:'translation_m', ro:'rotation_rad', tg:'tracking_gain_hz', dr:'damping_ratio', fs:'fine_scale', fr:'fine_rotation_scale' };
+const UNIT = { tr:'', ro:'', tg:' Hz', dr:'', fs:' m/s', fr:' rad/s' };
+const FMT  = (v, id) => id==='tg' ? v.toFixed(1) : (id==='dr'||id==='fr') ? v.toFixed(2) : v.toFixed(3);
 
 function track(el){
   const p=(el.value-el.min)/(el.max-el.min)*100;
@@ -184,17 +218,26 @@ IDS.forEach(id=>{
 });
 
 function updateModeUI(n){
-  document.querySelectorAll('.mode-opt').forEach((el,i)=>el.classList.toggle('active',i===n));
+  [0,1,2].forEach(i=>document.getElementById('opt-'+i).classList.toggle('active',i===n));
 }
 function setMode(n){
   updateModeUI(n);
   send({motion_mode:n});
 }
 
+function updateFineModeUI(n){
+  [0,1,2].forEach(i=>document.getElementById('fopt-'+i).classList.toggle('active',i===n));
+}
+function setFineMode(n){
+  updateFineModeUI(n);
+  send({fine_mode:n});
+}
+
 // 页面加载时同步当前参数
 fetch('/params').then(r=>r.json()).then(d=>{
   if(d.motion_mode!==undefined) updateModeUI(d.motion_mode);
-  ['tr','ro','tg','dr'].forEach(id=>{
+  if(d.fine_mode!==undefined) updateFineModeUI(d.fine_mode);
+  ['tr','ro','tg','dr','fs','fr'].forEach(id=>{
     const key=KEYS[id], el=document.getElementById('s-'+id);
     if(d[key]!==undefined){ el.value=d[key]; track(el);
       document.getElementById('v-'+id).textContent=FMT(d[key],id)+UNIT[id]; }
@@ -207,7 +250,7 @@ function resetAll(){
     el.value=DEF[id]; track(el);
     document.getElementById('v-'+id).textContent=FMT(DEF[id],id)+UNIT[id];
   });
-  send({translation_m:DEF.tr,rotation_rad:DEF.ro,tracking_gain_hz:DEF.tg,damping_ratio:DEF.dr});
+  send({translation_m:DEF.tr,rotation_rad:DEF.ro,tracking_gain_hz:DEF.tg,damping_ratio:DEF.dr,fine_scale:DEF.fs,fine_rotation_scale:DEF.fr});
 }
 
 let _actionPoll = null;
@@ -251,7 +294,7 @@ def start(state, port: int, arm_name: str):
     # 压制 werkzeug 的请求日志，避免干扰主程序输出
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    from config import TRANSLATION_SCALE, ROTATION_SCALE, TRACKING_GAIN_HZ, DAMPING_RATIO
+    from config import TRANSLATION_SCALE, ROTATION_SCALE, TRACKING_GAIN_HZ, DAMPING_RATIO, FINE_SCALE, FINE_ROTATION_SCALE
 
     app = Flask(__name__)
 
@@ -264,16 +307,21 @@ def start(state, port: int, arm_name: str):
             ro_def=ROTATION_SCALE,
             tg_def=TRACKING_GAIN_HZ,
             dr_def=DAMPING_RATIO,
+            fs_def=FINE_SCALE,
+            fr_def=FINE_ROTATION_SCALE,
         )
 
     @app.route("/params", methods=["GET"])
     def get_params():
         return jsonify({
-            "translation_m":    state.translation_scale,
-            "rotation_rad":     state.rotation_scale,
-            "tracking_gain_hz": state.tracking_gain_hz,
-            "damping_ratio":    state.damping_ratio,
-            "motion_mode":      state.motion_mode,
+            "translation_m":       state.translation_scale,
+            "rotation_rad":        state.rotation_scale,
+            "tracking_gain_hz":    state.tracking_gain_hz,
+            "damping_ratio":       state.damping_ratio,
+            "motion_mode":         state.motion_mode,
+            "fine_mode":           state.fine_mode,
+            "fine_scale":          state.fine_scale,
+            "fine_rotation_scale": state.fine_rotation_scale,
         })
 
     @app.route("/params", methods=["POST"])
@@ -289,6 +337,15 @@ def start(state, port: int, arm_name: str):
             state.damping_ratio = float(data["damping_ratio"])
         if "motion_mode" in data:
             state.set_motion_mode(int(data["motion_mode"]))
+        if "fine_mode" in data:
+            with state._lock:
+                state.fine_mode = int(data["fine_mode"])
+        if "fine_scale" in data:
+            with state._lock:
+                state.fine_scale = float(data["fine_scale"])
+        if "fine_rotation_scale" in data:
+            with state._lock:
+                state.fine_rotation_scale = float(data["fine_rotation_scale"])
         return jsonify({"ok": True})
 
     action_running = [False]
