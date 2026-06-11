@@ -15,14 +15,14 @@ rates:
 
 arms:
   right:
-    motor_config_path: "/home/jiayi/test/configs/robot_param/Follower_right.yaml"
+    motor_config_path: "/home/xuroboticslab/wbcd/v1/configs/robot_param/Follower_right.yaml"
     joint_names: ["joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6"]
     topics:
       joint_states: "/vla_robot/right/joint_states"
       end_effector: "/vla_robot/right/end_effector"
 
   left:
-    motor_config_path: "/home/jiayi/test/configs/robot_param/Follower_left.yaml"
+    motor_config_path: "/home/xuroboticslab/wbcd/v1/configs/robot_param/Follower_left.yaml"
     joint_names: ["joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6"]
     topics:
       joint_states: "/vla_robot/left/joint_states"
