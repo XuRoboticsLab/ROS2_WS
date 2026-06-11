@@ -106,12 +106,17 @@ class SharedState:
         """Pico init 时调用：记录当前末端位姿为位置控制基准。"""
         with self._lock:
             self.calibration_position = np.array(pos, dtype=float)
-            self.calibration_rotation = np.array(rot, dtype=float)
-            # 同步 hard/smooth target，避免校准后出现初始跳变
-            self.target_position    = self.calibration_position.copy()
-            self.target_rotation    = self.calibration_rotation.copy()
-            self._smooth_position   = self.calibration_position.copy()
-            self._smooth_rotation   = self.calibration_rotation.copy()
+            self.target_position  = self.calibration_position.copy()
+            self._smooth_position = self.calibration_position.copy()
+            if self.motion_mode == 0:
+                # 自由模式：旋转基准跟随实际 FK
+                self.calibration_rotation = np.array(rot, dtype=float)
+                self.target_rotation  = self.calibration_rotation.copy()
+                self._smooth_rotation = self.calibration_rotation.copy()
+            else:
+                # 约束模式：把当前 target_rotation（保留 z-offset）存为新基准，
+                # 不重置 target/smooth rotation，避免 re-init 清除已积累的旋转
+                self.calibration_rotation = self.target_rotation.copy()
             self._prev_linear_error  = np.zeros(3)
             self._prev_angular_error = np.zeros(3)
             self._pending_twist      = None
@@ -205,12 +210,12 @@ class SharedState:
 
         if mode in (1, 3):
             # 只保留 z 轴旋转（index 2），x/y 分量清零
+            # base 用 calibration_rotation（re-init 时已保存当前 z-offset），不用硬编码常量
             filtered = np.array([0.0, 0.0, angular_xyz[2]])
             rot_offset = Rotation.from_rotvec(filtered * self.rotation_scale).as_matrix()
-            base = _R_CONSTRAINED if mode == 1 else _R_FREE
             with self._lock:
                 self.target_position = self.calibration_position + pos_offset
-                self.target_rotation = rot_offset @ base
+                self.target_rotation = rot_offset @ self.calibration_rotation
         elif mode == 2:
             # 仅平动：旋转锁死在 Ry(90°)
             with self._lock:
