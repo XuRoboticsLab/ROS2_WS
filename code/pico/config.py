@@ -34,10 +34,16 @@ DEADZONE_ROT_RAD = float(_cfg["deadzone"]["rot_rad"])
 FILTER_ALPHA = float(_cfg["filter"]["alpha"])
 
 # ── 坐标系映射 ────────────────────────────────
-XR_TO_ROBOT_POS = np.array(_cfg["coord_mapping"]["pos"], dtype=float)
-XR_TO_ROBOT_ROT = np.array(_cfg["coord_mapping"]["rot"], dtype=float)
-ROT_SIGN        = np.array(_cfg["coord_mapping"].get("rot_sign", [1, 1, 1]), dtype=float)
-POS_SIGN        = np.array(_cfg["coord_mapping"].get("pos_sign", [1, 1, 1]), dtype=float)
+def _load_coord(side: str):
+    c = _cfg["coord_mapping"][side]
+    pos      = np.array(c["pos"],                          dtype=float)
+    rot      = np.array(c["rot"],                          dtype=float)
+    pos_sign = np.array(c.get("pos_sign", [1, 1, 1]),     dtype=float)
+    rot_sign = np.array(c.get("rot_sign", [1, 1, 1]),     dtype=float)
+    return pos, rot, pos_sign, rot_sign
+
+XR_TO_ROBOT_POS_RIGHT, XR_TO_ROBOT_ROT_RIGHT, POS_SIGN_RIGHT, ROT_SIGN_RIGHT = _load_coord("right")
+XR_TO_ROBOT_POS_LEFT,  XR_TO_ROBOT_ROT_LEFT,  POS_SIGN_LEFT,  ROT_SIGN_LEFT  = _load_coord("left")
 
 # ── Topics ────────────────────────────────────
 TOPIC_RIGHT_CMD     = _cfg["topics"]["publish"]["right_cmd"]

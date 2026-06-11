@@ -1,0 +1,53 @@
+# ─────────────────────────────────────────────
+#  Nero 左臂 + Pico 位置控制配置
+# ─────────────────────────────────────────────
+
+nero:
+  channel: "can0"
+  firmware_version: "v112"
+  effector: "agx_gripper"
+  gripper_max_width_m: 0.07
+  gripper_force_n: 1.0
+  speed_percent: 30
+  safe_speed_percent: 10
+
+rosbridge:
+  host: "localhost"
+  port: 9090
+
+rates:
+  control_hz: 50.0
+  publish_hz:  30.0
+  watchdog_timeout_s: 0.5
+
+safe_position:
+  joint_pos_rad: [0.075, 0.222, -0.003, 1.949, 0.008, 0.012, 0.987]
+
+twist_scale:
+  translation_m:  1.0
+  rotation_rad:   1.0
+
+smoothing:
+  max_linear_vel_m_s:    0.5
+  max_angular_vel_rad_s: 1.0
+  tracking_gain_hz:      5.0
+  damping_ratio:         1.0
+
+joints:
+  names: ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "joint7"]
+
+topics:
+  subscribe:
+    cmd:     "/joystick/left/cmd"
+    gripper: "/joystick/left/gripper"
+    reset:   "/joystick/left/reset"
+    init:    "/joystick/left/init"
+  publish:
+    joints: "/nero/left/joint_states"
+    ee:     "/nero/left/ee_pose"
+
+ik:
+  max_joint_step_rad: 0.15
+
+param_server_port: 8083
+arm_name: "Nero Left"

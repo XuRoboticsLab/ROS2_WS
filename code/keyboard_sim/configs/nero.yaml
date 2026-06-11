@@ -1,0 +1,17 @@
+# keyboard_sim → Nero 双臂配置
+# 与 code/pico/configs/nero.yaml 的 topic 名字对应
+rosbridge:
+  host: "localhost"
+  port: 9090
+
+topics:
+  publish:
+    right_cmd:     /right_cmd
+    left_cmd:      /left_cmd
+    right_gripper: /right_gripper
+    left_gripper:  /left_gripper
+    right_reset:   /right_reset
+    left_reset:    /left_reset
+    right_init:    /right_init
+    left_init:     /left_init
+    emergency:     /emergency

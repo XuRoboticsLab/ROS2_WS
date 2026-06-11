@@ -35,9 +35,9 @@ class XRRosPublisher:
         """side: 'right' | 'left'"""
         self._pub(f"{side}_cmd", twist)
 
-    def publish_gripper(self, side: str, pos: float):
-        """pos: 0.0=fully closed, 2.0=fully open (rad)"""
-        self._pub(f"{side}_gripper", {"data": float(pos)})
+    def publish_gripper(self, side: str, value: float):
+        """value: [0.0, 2.0]，0.0=完全闭合，2.0=完全张开"""
+        self._pub(f"{side}_gripper", {"data": value})
 
     def publish_reset(self, side: str, value: bool = True):
         self._pub(f"{side}_reset", {"data": value})

@@ -1,0 +1,62 @@
+# ─────────────────────────────────────────────
+#  Nero 右臂 + Pico 位置控制配置
+#
+#  使用前必须修改：
+#    1. nero.channel → 实际 CAN 通道名（vcan0 / can_right 等）
+#    2. rosbridge.host → 运行 rosbridge 的机器 IP
+#    3. safe_position.joint_pos_rad → 右臂的安全关节角度（弧度）
+# ─────────────────────────────────────────────
+
+nero:
+  channel: "can_right"           # CAN 接口名，可用 ip link show 查看
+  firmware_version: "v112"       # NeroFW: default / v111 / v112
+  effector: "agx_gripper"        # 末端执行器类型，无夹爪时设为 null
+  gripper_max_width_m: 0.07      # 夹爪最大张开宽度（米）
+  gripper_force_n: 1.0           # 夹爪夹取力（N）
+  speed_percent: 30              # 正常控制速度（百分比）
+  safe_speed_percent: 10         # 移动到安全位置时的速度
+
+rosbridge:
+  host: "localhost"              # rosbridge 所在机器 IP
+  port: 9090
+
+rates:
+  control_hz: 50.0              # 控制循环频率
+  publish_hz:  30.0             # ROS 状态发布频率
+  watchdog_timeout_s: 0.5       # Pico 指令超时（秒）
+
+# 安全关节角度（弧度），7 轴
+# 可运行 nero demo 后用 get_joint_angles() 确认各轴零位
+safe_position:
+  joint_pos_rad: [0.204, 1.422, 1.330, 1.155, 0.040, 0.516, 0.327]
+
+# Pico 偏移量缩放（初始值，可在 Flask 页面实时调节）
+twist_scale:
+  translation_m:  0.5    # Pico 位移 → 末端位移 缩放
+  rotation_rad:   2    # Pico 旋转 → 末端旋转 缩放
+
+# Smooth target 参数
+smoothing:
+  max_linear_vel_m_s:    0.5    # 末端线速度限幅（m/s）
+  max_angular_vel_rad_s: 1.0    # 末端角速度限幅（rad/s）
+  tracking_gain_hz:      5.0    # 跟踪带宽（Hz）—— 越大越快
+  damping_ratio:         1.0    # 阻尼比（1.0 = 临界阻尼）
+
+joints:
+  names: ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "joint7"]
+
+topics:
+  subscribe:
+    cmd:     "/joystick/right/cmd"       # geometry_msgs/Twist：末端位姿偏移量
+    gripper: "/joystick/right/gripper"   # std_msgs/Float32：夹爪指令 [0,2]
+    reset:   "/joystick/right/reset"     # std_msgs/Bool：复位到安全位置
+    init:    "/joystick/right/init"      # std_msgs/Bool：设置校准基准
+  publish:
+    joints: "/nero/right/joint_states"  # sensor_msgs/JointState
+    ee:     "/nero/right/ee_pose"       # geometry_msgs/PoseStamped
+
+ik:
+  max_joint_step_rad: 0.15   # 每周期最大关节步长（防奇异点跳变）
+
+param_server_port: 8082
+arm_name: "Nero Right"

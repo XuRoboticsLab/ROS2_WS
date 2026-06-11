@@ -18,7 +18,6 @@ import time
 
 
 from config import (
-    XR_TO_ROBOT_POS, XR_TO_ROBOT_ROT, POS_SIGN, ROT_SIGN,
     TRANSLATION_SCALE, ROTATION_SCALE, MAX_DELTA_POS,
     DEADZONE_POS_M, DEADZONE_ROT_RAD,
     FILTER_ALPHA,
@@ -100,8 +99,13 @@ class PoseEMAFilter:
 class ArmConverter:
     """单臂坐标转换器"""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, pos_mat: np.ndarray, rot_mat: np.ndarray,
+                 pos_sign: np.ndarray, rot_sign: np.ndarray):
         self.name = name
+        self._pos_mat  = pos_mat
+        self._rot_mat  = rot_mat
+        self._pos_sign = pos_sign
+        self._rot_sign = rot_sign
         self._init_pos = None   # XR 初始位置
         self._init_rot = None   # XR 初始旋转矩阵
         self.is_calibrated = False
@@ -149,7 +153,7 @@ class ArmConverter:
 
         # ── 位置：增量死区 ────────────────────────
         delta_pos_xr = _clamp_vec(cur_pos - self._init_pos, MAX_DELTA_POS)
-        raw_pos_out  = XR_TO_ROBOT_POS @ (R_yaw.T @ delta_pos_xr) * POS_SIGN
+        raw_pos_out  = self._pos_mat @ (R_yaw.T @ delta_pos_xr) * self._pos_sign
         # 只有相对上帧输出的变化量超过阈值时才更新，否则保持上帧输出
         pos_change = _apply_deadzone_vec(raw_pos_out - self._last_pos, DEADZONE_POS_M)
         self._last_pos = self._last_pos + pos_change
@@ -157,9 +161,9 @@ class ArmConverter:
         # ── 旋转：增量死区 ────────────────────────
         delta_rot_xr   = cur_rot @ self._init_rot.T
         delta_rot_user = R_yaw.T @ delta_rot_xr @ R_yaw
-        delta_rot_robot = XR_TO_ROBOT_ROT @ delta_rot_user @ XR_TO_ROBOT_ROT.T
+        delta_rot_robot = self._rot_mat @ delta_rot_user @ self._rot_mat.T
         euler = _rotation_to_euler(delta_rot_robot)
-        raw_rotvec_out = Rotation.from_euler('xyz', euler * ROT_SIGN).as_rotvec()
+        raw_rotvec_out = Rotation.from_euler('xyz', euler * self._rot_sign).as_rotvec()
         rot_change = _apply_deadzone_vec(raw_rotvec_out - self._last_rotvec, DEADZONE_ROT_RAD)
         self._last_rotvec = self._last_rotvec + rot_change
 

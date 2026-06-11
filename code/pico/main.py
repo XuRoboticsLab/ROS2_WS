@@ -29,7 +29,11 @@ except ImportError:
     print("错误: xrobotoolkit_sdk 未安装，请确认在正确的 conda 环境中运行")
     sys.exit(1)
 
-from config import ROSBRIDGE_HOST, ROSBRIDGE_PORT, GRIP_THRESHOLD
+from config import (
+    ROSBRIDGE_HOST, ROSBRIDGE_PORT, GRIP_THRESHOLD,
+    XR_TO_ROBOT_POS_RIGHT, XR_TO_ROBOT_ROT_RIGHT, POS_SIGN_RIGHT, ROT_SIGN_RIGHT,
+    XR_TO_ROBOT_POS_LEFT,  XR_TO_ROBOT_ROT_LEFT,  POS_SIGN_LEFT,  ROT_SIGN_LEFT,
+)
 from utils import GripDetector, ArmConverter
 from ros_publisher import XRRosPublisher
 
@@ -38,9 +42,8 @@ GRIPPER_MAX_RAD = 2.0  # 完全张开 (rad)
 
 
 def _trigger_to_gripper_pos(trigger: float) -> float:
-    """trigger [0, 1] → gripper position [0.0, 2.0] rad
-    松开 trigger (0) = 夹爪张开 (2.0 rad)
-    按下 trigger (1) = 夹爪闭合 (0.0 rad)
+    """trigger [0, 1] → gripper position [0.0, 2.0]
+    松开 trigger (0) = 夹爪张开 (2.0), 按下 trigger (1) = 夹爪闭合 (0.0)
     """
     return (1.0 - max(0.0, min(1.0, trigger))) * GRIPPER_MAX_RAD
 
@@ -77,8 +80,8 @@ def main():
     publisher   = XRRosPublisher(ros)
     right_grip  = GripDetector("右手")
     left_grip   = GripDetector("左手")
-    right_conv  = ArmConverter("右臂")
-    left_conv   = ArmConverter("左臂")
+    right_conv  = ArmConverter("右臂", XR_TO_ROBOT_POS_RIGHT, XR_TO_ROBOT_ROT_RIGHT, POS_SIGN_RIGHT, ROT_SIGN_RIGHT)
+    left_conv   = ArmConverter("左臂", XR_TO_ROBOT_POS_LEFT,  XR_TO_ROBOT_ROT_LEFT,  POS_SIGN_LEFT,  ROT_SIGN_LEFT)
 
     loop_count = 0
 

@@ -1,0 +1,78 @@
+# ─────────────────────────────────────────────
+#  Pico 4 Ultra → Nero 双臂 配置
+#
+#  使用前必须修改：
+#    1. rosbridge.host → 机器人电脑的 IP
+#    2. coord_mapping  → 根据实际 XR/机器人坐标系关系调整
+# ─────────────────────────────────────────────
+
+rosbridge:
+  host: "localhost"   # ← 改成机器人电脑 IP
+  port: 9090
+
+# ── Grip 检测 ─────────────────────────────────
+grip:
+  threshold: 0.7            # Grip 按下阈值 (0~1)
+  double_tap_window_s: 0.4  # 双击判定窗口 (秒)
+
+# ── 偏移缩放 ──────────────────────────────────
+# 可在 Flask 参数页面 (robot-ip:8080/8081) 动态调节，这里是初始值
+scale:
+  translation_m:   1.0    # 手柄位移 → 末端位移 缩放
+  rotation_rad:    1.0    # 手柄旋转 → 末端旋转 缩放
+  max_delta_pos_m: 0.3    # 最大累计偏移限幅 (m)
+
+# ── 死区 (过滤手抖) ────────────────────────────
+deadzone:
+  pos_m:   0.003   # 位置死区 (m)
+  rot_rad: 0.01    # 旋转死区 (rad)
+
+# ── XR 位姿低通滤波 ────────────────────────────
+filter:
+  alpha: 0.4   # EMA 系数 (0=不滤波, 1=完全平滑)
+
+# ── 坐标系映射 ────────────────────────────────
+# XR 世界系: X右 Y上 Z朝向用户
+# 机器人基座系: X前 Y左 Z上（以面向 Nero 为参考方向）
+#
+# pos: 3×3 矩阵，将 XR 相对位移映射到机器人位移
+# rot: 3×3 矩阵，定义旋转向量空间的映射（同一矩阵作为 similarity transform）
+# pos_sign / rot_sign: 各轴符号翻转 (+1 或 -1)
+#
+# ⚠️  左右臂可以独立配置不同的映射矩阵
+coord_mapping:
+  right:
+    pos:
+      - [ 0,  1,  0]   # robot_x = -xr_z (用户向前推手 → 机器人前进)
+      - [ 0,  0,  1]   # robot_y = -xr_x (用户向左移手 → 机器人向左)
+      - [ 1,  0,  0]   # robot_z =  xr_y (用户向上移手 → 机器人向上)
+    rot:
+      - [ 0,  1,  0]   # robot_x = -xr_z (用户向前推手 → 机器人前进)
+      - [ 0,  0,  1]   # robot_y = -xr_x (用户向左移手 → 机器人向左)
+      - [ 1,  0,  0]   # robot_z =  xr_y (用户向上移手 → 机器人向上)
+    pos_sign: [1, 1, 1]
+    rot_sign: [1, 1, 1]
+  left:
+    pos:
+      - [ 0,  1,  0]   # robot_x = -xr_z (用户向前推手 → 机器人前进)
+      - [ 0,  0, -1]   # robot_y = -xr_x (用户向左移手 → 机器人向左)
+      - [-1,  0,  0]   # robot_z =  xr_y (用户向上移手 → 机器人向上)
+    rot:
+      - [ 0,  1,  0]   # robot_x = -xr_z (用户向前推手 → 机器人前进)
+      - [ 0,  0, -1]   # robot_y = -xr_x (用户向左移手 → 机器人向左)
+      - [-1,  0,  0]   # robot_z =  xr_y (用户向上移手 → 机器人向上)
+    pos_sign: [1, 1, 1]
+    rot_sign: [1, 1, 1]
+
+# ── Topics (与 nero/pico_control/configs/*.yaml 对应) ─
+topics:
+  publish:
+    right_cmd:      "/joystick/right/cmd"
+    left_cmd:       "/joystick/left/cmd"
+    right_gripper:  "/joystick/right/gripper"
+    left_gripper:   "/joystick/left/gripper"
+    right_reset:    "/joystick/right/reset"
+    left_reset:     "/joystick/left/reset"
+    right_init:     "/joystick/right/init"
+    left_init:      "/joystick/left/init"
+    emergency:      "/joystick/emergency"
