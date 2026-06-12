@@ -85,9 +85,10 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
 
         with state._lock:
             gripper_pos = state.gripper_cmd
+            gripper_vel = state.gripper_vel
 
         if gripper_pos is not None:
-            robot.gripper_control(pos=gripper_pos, vel=0.5, max_tqu=0.5)
+            robot.gripper_control(pos=gripper_pos, vel=gripper_vel, max_tqu=0.5)
 
         twist = state.pop_twist()
         if twist is not None:

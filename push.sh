@@ -4,7 +4,7 @@
 # 忽略 .gitignore 里的内容，以及 push.sh / pull.sh 本身
 # 服务器上独有的文件不会被删除
 
-REMOTE="xrl_local:/home/xuroboticslab/wbcd/v1"
+REMOTE="xrl_local:/home/xuroboticslab/wbcd/v7"
 LOCAL="$(cd "$(dirname "$0")" && pwd)"
 
 EXCLUDES=(

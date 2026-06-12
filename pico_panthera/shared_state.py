@@ -44,6 +44,7 @@ class SharedState:
         self._pending_fine_delta = None
 
         self.gripper_cmd: float | None = None
+        self.gripper_vel: float = 3.0   # rad/s，可由 param_server 实时调节
 
         # 运动模式：0=自由，1=约束z轴旋转(基准Ry90°)，2=仅平动(基准Ry90°，无旋转)，3=约束z轴旋转(无初始旋转)
         self.motion_mode: int = 0
@@ -74,6 +75,16 @@ class SharedState:
         with self._lock:
             self.goto_joint_pos = list(joint_pos)
             self.action_locked = True
+
+    def request_goto_height_z(self, z: float) -> bool:
+        """将 target_position[2] 设为 z，保持当前旋转，锁定 Pico 输入。
+        未校准时返回 False。"""
+        with self._lock:
+            if self.calibration_position is None:
+                return False
+            self.target_position[2] = float(z)
+            self.action_locked = True
+        return True
 
     def rotation_error_magnitude(self, target_rot: np.ndarray) -> float:
         with self._lock:
