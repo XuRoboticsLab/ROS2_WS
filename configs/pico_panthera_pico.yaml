@@ -1,0 +1,33 @@
+# pico_panthera_pico.yaml  —  Pico 发布端配置（ZMQ 版）
+# 运行: python pico_panthera/pico_main.py --config configs/pico_panthera_pico.yaml
+
+ipc:
+  address: "tcp://127.0.0.1:5678"   # ZMQ PUB 地址；panthera 侧用相同地址 connect
+
+grip:
+  threshold: 0.5
+  double_tap_window_s: 0.4
+
+scale:
+  translation_m: 1.0    # XR 位移 → Twist linear 缩放
+  rotation_rad:  1.0    # XR 旋转 → Twist angular 缩放
+  max_delta_pos_m: 0.3  # 单步最大位移，超出则截断（方向保留）
+
+deadzone:
+  pos_m:   0.008  # 平移死区半径 (m)
+  rot_rad: 0.03   # 旋转死区 (rad ≈ 1.7°)
+
+filter:
+  alpha: 0.08
+
+coord_mapping:
+  pos: [[0, 0, -1],
+        [-1, 0, 0],
+        [0, 1, 0]]
+  rot: [[0, 0, -1],
+        [-1, 0, 0],
+        [0, 1, 0]]
+  rot_sign: [1, 1, 1]
+
+joystick:
+  axis_threshold: 0.15

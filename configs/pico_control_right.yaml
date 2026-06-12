@@ -60,3 +60,7 @@ topics:
   publish:
     joints:  "/follower_right/joint_states"
     ee:      "/follower_right/end_effector"
+
+arm_name: "右臂"
+param_server_port: 8081
+poses_file: "/home/xuroboticslab/wbcd/v1/configs/poses_right.json"

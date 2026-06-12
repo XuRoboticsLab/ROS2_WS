@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────
-#  config.py  —  读取配置
+#  panthera_config.py  —  读取机械臂侧配置
 # ─────────────────────────────────────────────
 
 import os
@@ -14,16 +14,16 @@ with open(_YAML_PATH, "r") as f:
 
 MOTOR_CONFIG_PATH = str(_cfg["motor_config_path"])
 
-# ── ROS Bridge ────────────────────────────────
-ROSBRIDGE_HOST = _cfg["rosbridge"]["host"]
-ROSBRIDGE_PORT = _cfg["rosbridge"]["port"]
+# ── IPC ───────────────────────────────────────
+IPC_ADDRESS = str(_cfg["ipc"]["address"])
+ARM_SIDE    = str(_cfg["ipc"]["arm_side"])   # "right" 或 "left"
 
 # ── 频率 ──────────────────────────────────────
 CONTROL_RATE     = float(_cfg["rates"]["control_hz"])
-PUBLISH_RATE     = float(_cfg["rates"]["publish_hz"])
+PUBLISH_RATE     = float(_cfg["rates"].get("publish_hz", 100.0))  # 保留字段，当前未使用
 WATCHDOG_TIMEOUT = float(_cfg["rates"]["watchdog_timeout_s"])
 
-# ── PD 增益（传给 pos_vel_tqe_kp_kd）─────────
+# ── PD 增益 ───────────────────────────────────
 KP = list(_cfg["ik_control"]["kp"])
 KD = list(_cfg["ik_control"]["kd"])
 
@@ -47,7 +47,7 @@ DAMPING_RATIO    = float(_cfg["smoothing"]["damping_ratio"])
 # ── 关节名称 ──────────────────────────────────
 JOINT_NAMES = list(_cfg["joints"]["names"])
 
-# ── Topics ────────────────────────────────────
+# ── 参数服务器 ────────────────────────────────
 PARAM_SERVER_PORT = int(_cfg.get("param_server_port", 8080))
 ARM_NAME          = str(_cfg.get("arm_name", "机械臂"))
 
@@ -56,11 +56,3 @@ FINE_SCALE          = float(_cfg.get("fine_control", {}).get("scale_m_per_s", 0.
 FINE_ROTATION_SCALE = float(_cfg.get("fine_control", {}).get("rotation_scale_rad_per_s", 0.5))
 
 POSES_FILE = str(_cfg.get("poses_file", ""))
-
-TOPIC_CMD      = _cfg["topics"]["subscribe"]["cmd"]
-TOPIC_GRIPPER  = _cfg["topics"]["subscribe"]["gripper"]
-TOPIC_RESET    = _cfg["topics"]["subscribe"]["reset"]
-TOPIC_INIT     = _cfg["topics"]["subscribe"].get("init", "")
-TOPIC_FINE_CMD = _cfg["topics"]["subscribe"].get("fine_cmd", "")
-TOPIC_JOINTS   = _cfg["topics"]["publish"]["joints"]
-TOPIC_EE       = _cfg["topics"]["publish"]["ee"]

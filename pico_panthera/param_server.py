@@ -1,9 +1,5 @@
 # ─────────────────────────────────────────────
 #  param_server.py  —  Flask 参数实时调节服务器
-#
-#  GET  /        → 调节页面
-#  GET  /params  → 当前参数 JSON
-#  POST /params  → 更新参数
 # ─────────────────────────────────────────────
 
 import logging
@@ -13,15 +9,13 @@ import time
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-# 预制动作用到的常量旋转
-_R_CONST  = Rotation.from_euler('y',  np.pi / 2).as_matrix()  # Ry(90°) — gripper 竖直向下
-_R_Z_POS  = Rotation.from_euler('z',  np.pi / 2).as_matrix()  # Rz(+90°)
-_R_Z_NEG  = Rotation.from_euler('z', -np.pi / 2).as_matrix()  # Rz(-90°)
+_R_CONST  = Rotation.from_euler('y',  np.pi / 2).as_matrix()
+_R_Z_POS  = Rotation.from_euler('z',  np.pi / 2).as_matrix()
+_R_Z_NEG  = Rotation.from_euler('z', -np.pi / 2).as_matrix()
 
 
 def _wait_rotation(state, target_rot: np.ndarray,
                    timeout: float = 6.0, tol: float = 0.08) -> bool:
-    """阻塞直到 smooth_rotation 与 target_rot 误差 < tol rad，或超时返回 False。"""
     t0 = time.time()
     while time.time() - t0 < timeout:
         if state.rotation_error_magnitude(target_rot) < tol:
@@ -252,7 +246,6 @@ function setFineMode(n){
   send({fine_mode:n});
 }
 
-// 页面加载时同步当前参数
 fetch('/params').then(r=>r.json()).then(d=>{
   if(d.motion_mode!==undefined) updateModeUI(d.motion_mode);
   if(d.fine_mode!==undefined) updateFineModeUI(d.fine_mode);
@@ -297,7 +290,6 @@ async function runAction(name, btnId){
 }
 function resetActionBtn(btn,name){ btn.disabled=false; btn.querySelector('.an').textContent=name; }
 
-// ── 位姿管理 ─────────────────────────────────
 function _esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 function renderPoses(poses){
@@ -374,15 +366,13 @@ def start(state, robot, port: int, arm_name: str, poses_file: str = ""):
         print("[ParamServer] flask 未安装，跳过参数调节服务器 (pip install flask)")
         return
 
-    # 压制 werkzeug 的请求日志，避免干扰主程序输出
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
     import json
     import os
 
-    from config import TRANSLATION_SCALE, ROTATION_SCALE, TRACKING_GAIN_HZ, DAMPING_RATIO, FINE_SCALE, FINE_ROTATION_SCALE
+    from panthera_config import TRANSLATION_SCALE, ROTATION_SCALE, TRACKING_GAIN_HZ, DAMPING_RATIO, FINE_SCALE, FINE_ROTATION_SCALE
 
-    # ── 位姿持久化 ────────────────────────────────
     poses = {}
     if poses_file and os.path.exists(poses_file):
         try:
@@ -490,7 +480,6 @@ def start(state, robot, port: int, arm_name: str, poses_file: str = ""):
     def action_status():
         return jsonify({"running": action_running[0]})
 
-    # ── 位姿管理 ─────────────────────────────────
     @app.route("/poses", methods=["GET"])
     def get_poses():
         return jsonify({"poses": poses})
@@ -515,7 +504,6 @@ def start(state, robot, port: int, arm_name: str, poses_file: str = ""):
     def _run_goto_pose_thread(joint_pos):
         try:
             state.request_goto_joint_pos(joint_pos)
-            # 等待控制循环完成移动（完成后控制循环会把 action_locked 清回 False）
             t0 = time.time()
             while state.action_locked and time.time() - t0 < 30.0:
                 time.sleep(0.1)

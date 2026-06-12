@@ -1,8 +1,8 @@
 xr:
-    /home/xuroboticslab/miniforge3/envs/xr/bin/python code/pico/main.py --config configs/pico.yaml
+    /home/xuroboticslab/miniforge3/envs/xr/bin/python pico_panthera/pico_main.py --config configs/pico_panthera_pico.yaml
 
 p-right:
-    /home/xuroboticslab/miniforge3/envs/panthera1/bin/python code/panthera/pico_control/main.py --config configs/pico_control_right.yaml
+    /home/xuroboticslab/miniforge3/envs/panthera1/bin/python pico_panthera/panthera_main.py --config configs/pico_panthera_right.yaml
 
 p-left:
-    /home/xuroboticslab/miniforge3/envs/panthera1/bin/python code/panthera/pico_control/main.py --config configs/pico_control_left.yaml
+    /home/xuroboticslab/miniforge3/envs/panthera1/bin/python pico_panthera/panthera_main.py --config configs/pico_panthera_left.yaml

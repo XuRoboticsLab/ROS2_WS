@@ -6,12 +6,11 @@ import time
 import threading
 import numpy as np
 
-from config import CONTROL_RATE, KP, KD, IK_MAX_JOINT_STEP, SAFE_JOINT_POS, SAFE_JOINT_VEL
+from panthera_config import CONTROL_RATE, KP, KD, IK_MAX_JOINT_STEP, SAFE_JOINT_POS, SAFE_JOINT_VEL
 from shared_state import SharedState
 
 
 def _hold(robot, state: SharedState):
-    """保持上一次有效关节位置 + 重力补偿。"""
     grav = np.array(robot.get_Gravity())
     robot.pos_vel_tqe_kp_kd(
         state.last_valid_joint_pos,
@@ -21,7 +20,6 @@ def _hold(robot, state: SharedState):
 
 
 def _update_state(robot, state: SharedState):
-    """读取 FK + 关节速度 + 夹爪状态并写入共享状态。"""
     fk      = robot.forward_kinematics()
     gripper = robot.get_current_state_gripper()
     state.set_robot_state(
@@ -39,12 +37,12 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
     50 Hz 位置控制循环（Pico → Panthera 位置跟随）。
 
     逻辑：
-      1. 物理复位（最高优先级）：移到安全位置，重置 target
-      2. 夹爪连续控制：gripper_control(pos, vel, tqu)，跟随 Pico trigger 值
-      3. 消费 Pico 偏移量 → 更新 hard target（校准基准 + 偏移量）
+      1. 物理复位（最高优先级）
+      2. 夹爪连续控制
+      3. 消费 Pico 偏移量 → 更新 hard target
       4. Watchdog 超时 或 尚未校准 → hold
       5. Smooth target 步进（PD + 速度限幅）→ IK → pos_vel_tqe_kp_kd
-      6. 更新共享状态供发布线程读取
+      6. 更新共享状态
     """
     interval = 1.0 / CONTROL_RATE
     n_joints = robot.motor_count
@@ -54,7 +52,6 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
     while not stop_event.is_set():
         t0 = time.time()
 
-        # ── 1. 物理复位（最高优先级）────────────────
         with state._lock:
             do_reset = state.reset_requested
             state.reset_requested = False
@@ -70,7 +67,6 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
             time.sleep(max(0.0, interval - (time.time() - t0)))
             continue
 
-        # ── 1.5. 前往保存位姿 ────────────────────
         with state._lock:
             goto_pos = state.goto_joint_pos
             state.goto_joint_pos = None
@@ -87,31 +83,26 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
             time.sleep(max(0.0, interval - (time.time() - t0)))
             continue
 
-        # ── 2. 夹爪连续位置控制 ──────────────────
         with state._lock:
-            gripper_pos = state.gripper_cmd  # float | None，保持最新值不重置
+            gripper_pos = state.gripper_cmd
 
         if gripper_pos is not None:
             robot.gripper_control(pos=gripper_pos, vel=0.5, max_tqu=0.5)
 
-        # ── 3. 消费 Pico 偏移量 ──────────────────
         twist = state.pop_twist()
         if twist is not None:
             state.set_target_from_offset(twist[0], twist[1])
 
-        # ── 3.5. 操纵杆精细控制（不按 Grip 时）───
         fine = state.pop_fine_delta()
         if fine is not None:
             state.apply_fine_delta_to_target(fine)
 
-        # ── 4. Watchdog / 未校准 → hold ──────────
         if not state.is_calibrated() or (not state.action_locked and not state.is_watchdog_ok()):
             _hold(robot, state)
             _update_state(robot, state)
             time.sleep(max(0.0, interval - (time.time() - t0)))
             continue
 
-        # ── 5. Smooth target 步进 → IK ───────────
         target_pos, target_rot = state.step_smooth_target()
 
         joint_pos = robot.inverse_kinematics(
@@ -122,7 +113,6 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
         )
 
         if joint_pos is not None:
-            # 关节空间速度限幅：防止 IK 在奇异点附近产生大幅跳变
             delta = np.array(joint_pos) - np.array(state.last_valid_joint_pos)
             max_delta = np.max(np.abs(delta))
             if max_delta > IK_MAX_JOINT_STEP:
@@ -137,7 +127,6 @@ def control_loop(robot, state: SharedState, stop_event: threading.Event):
         else:
             _hold(robot, state)
 
-        # ── 5. 更新发布状态 ───────────────────────
         _update_state(robot, state)
 
         time.sleep(max(0.0, interval - (time.time() - t0)))

@@ -1,0 +1,50 @@
+# pico_panthera_right.yaml  —  右臂控制端配置（ZMQ 版）
+# 运行: python pico_panthera/panthera_main.py --config configs/pico_panthera_right.yaml
+
+motor_config_path: "/home/xuroboticslab/wbcd/v1/configs/robot_param/Follower_right.yaml"
+
+ipc:
+  address: "tcp://127.0.0.1:5678"   # 与 pico_panthera_pico.yaml 保持一致
+  arm_side: "right"                  # 订阅 right:* 话题
+
+rates:
+  control_hz: 50.0
+  watchdog_timeout_s: 0.5
+
+ik_control:
+  kp: [30.0, 50.0, 60.0, 25.0, 15.0, 10.0]
+  kd: [ 3.0,  5.0,  6.0,  2.5,  1.5,  1.0]
+
+ik_params:
+  max_joint_step_rad: 0.15
+
+safe_position:
+  joint_pos: [0.0, 0.5, 0.6, 0.0, 0.0, 0.0]
+  joint_vel: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+
+twist_scale:
+  translation_m: 0.7
+  rotation_rad:  1
+
+smoothing:
+  max_linear_vel_m_s:    0.2
+  max_angular_vel_rad_s: 0.5
+  tracking_gain_hz:      40
+  damping_ratio:         0.6
+
+joints:
+  names:
+    - joint_1
+    - joint_2
+    - joint_3
+    - joint_4
+    - joint_5
+    - joint_6
+
+fine_control:
+  scale_m_per_s: 0.1
+  rotation_scale_rad_per_s: 0.5
+
+arm_name: "右臂"
+param_server_port: 8081
+poses_file: "/home/xuroboticslab/wbcd/v1/configs/poses_right.json"
