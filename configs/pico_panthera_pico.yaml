@@ -20,7 +20,7 @@ deadzone:
 filter:
   alpha: 0.08
 
-coord_mapping:
+coord_mapping_right:
   pos: [[0, 0, -1],
         [-1, 0, 0],
         [0, 1, 0]]
@@ -28,6 +28,17 @@ coord_mapping:
         [-1, 0, 0],
         [0, 1, 0]]
   rot_sign: [1, 1, 1]
+  pos_sign: [1, 1, 1]
+
+coord_mapping_left:
+  pos: [[0, 0, -1],
+        [-1, 0, 0],
+        [0, 1, 0]]
+  rot: [[0, 0, -1],
+        [-1, 0, 0],
+        [0, 1, 0]]
+  rot_sign: [1, 1, 1]
+  pos_sign: [1, 1, 1]
 
 joystick:
   axis_threshold: 0.15

@@ -32,11 +32,20 @@ DEADZONE_ROT_RAD = float(_cfg["deadzone"]["rot_rad"])
 # ── 低通滤波 ──────────────────────────────────
 FILTER_ALPHA = float(_cfg["filter"]["alpha"])
 
-# ── 坐标系映射 ────────────────────────────────
-XR_TO_ROBOT_POS = np.array(_cfg["coord_mapping"]["pos"], dtype=float)
-XR_TO_ROBOT_ROT = np.array(_cfg["coord_mapping"]["rot"], dtype=float)
-ROT_SIGN        = np.array(_cfg["coord_mapping"].get("rot_sign", [1, 1, 1]), dtype=float)
-POS_SIGN        = np.array(_cfg["coord_mapping"].get("pos_sign", [1, 1, 1]), dtype=float)
+# ── 坐标系映射（左右臂分别配置）──────────────────
+def _load_coord_mapping(section: dict):
+    return (
+        np.array(section["pos"],                        dtype=float),
+        np.array(section["rot"],                        dtype=float),
+        np.array(section.get("pos_sign", [1, 1, 1]),   dtype=float),
+        np.array(section.get("rot_sign", [1, 1, 1]),   dtype=float),
+    )
+
+(XR_TO_ROBOT_POS_RIGHT, XR_TO_ROBOT_ROT_RIGHT,
+ POS_SIGN_RIGHT, ROT_SIGN_RIGHT) = _load_coord_mapping(_cfg["coord_mapping_right"])
+
+(XR_TO_ROBOT_POS_LEFT, XR_TO_ROBOT_ROT_LEFT,
+ POS_SIGN_LEFT, ROT_SIGN_LEFT) = _load_coord_mapping(_cfg["coord_mapping_left"])
 
 # ── 操纵杆精细控制 ────────────────────────────
 AXIS_THRESHOLD = float(_cfg.get("joystick", {}).get("axis_threshold", 0.15))

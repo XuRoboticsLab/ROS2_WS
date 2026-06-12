@@ -22,7 +22,11 @@ except ImportError:
     print("错误: xrobotoolkit_sdk 未安装，请确认在正确的 conda 环境中运行")
     sys.exit(1)
 
-from pico_config import IPC_ADDRESS, AXIS_THRESHOLD
+from pico_config import (
+    IPC_ADDRESS, AXIS_THRESHOLD,
+    XR_TO_ROBOT_POS_RIGHT, XR_TO_ROBOT_ROT_RIGHT, POS_SIGN_RIGHT, ROT_SIGN_RIGHT,
+    XR_TO_ROBOT_POS_LEFT,  XR_TO_ROBOT_ROT_LEFT,  POS_SIGN_LEFT,  ROT_SIGN_LEFT,
+)
 from utils import GripDetector, ArmConverter
 from ipc_bridge import ZmqPublisher
 
@@ -57,8 +61,8 @@ def main():
     publisher   = ZmqPublisher(IPC_ADDRESS)
     right_grip  = GripDetector("右手")
     left_grip   = GripDetector("左手")
-    right_conv  = ArmConverter("右臂")
-    left_conv   = ArmConverter("左臂")
+    right_conv  = ArmConverter("右臂", XR_TO_ROBOT_POS_RIGHT, XR_TO_ROBOT_ROT_RIGHT, POS_SIGN_RIGHT, ROT_SIGN_RIGHT)
+    left_conv   = ArmConverter("左臂", XR_TO_ROBOT_POS_LEFT,  XR_TO_ROBOT_ROT_LEFT,  POS_SIGN_LEFT,  ROT_SIGN_LEFT)
 
     # ZMQ PUB socket 绑定后需要短暂等待订阅端连接
     time.sleep(0.1)
