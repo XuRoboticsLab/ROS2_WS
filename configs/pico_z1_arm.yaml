@@ -1,0 +1,43 @@
+# pico_z1_arm.yaml  —  Z1 机械臂控制端配置
+# 运行: python pico_z1/z1_main.py --config configs/pico_z1_arm.yaml
+
+ipc:
+  # 填写 Pico 控制机的局域网 IP，端口与 pico_z1_pico.yaml 一致
+  # 同机部署：改回 tcp://127.0.0.1:5679
+  address: "tcp://192.168.x.x:5679"
+  arm_side: "right"                  # 订阅 right:* 话题，与 hand_side 一致
+
+z1:
+  lib_path: "../lib"    # unitree_arm_interface 库路径（相对于 pico_z1/ 目录）
+  has_gripper: true
+
+control:
+  rate_hz: 50.0          # 控制循环频率
+  watchdog_timeout_s: 0.5 # Pico 超过此时间无指令则停止跟随
+
+# P 控制器：速度 = Kp × 误差（clamp 到 max_vel）
+tracking:
+  kp_linear:      2.0   # 线速度比例增益（m/s 每 m 误差）
+  kp_angular:     2.0   # 角速度比例增益（rad/s 每 rad 误差）
+  max_linear_vel: 0.3   # 最大线速度（m/s）
+  max_angular_vel: 0.5  # 最大角速度（rad/s）
+
+# Pico 偏移量缩放（param_server 可实时调节）
+scale:
+  translation_m: 0.7    # Pico 位移偏移 → 目标位移缩放倍数
+  rotation_rad:  1.0    # Pico 旋转偏移 → 目标旋转缩放倍数
+
+# 摇杆精细控制（Grip 松开时生效）
+fine_control:
+  scale_m_per_s: 0.05   # 摇杆每单位对应的速度（m/s）
+
+# 初始位置（笛卡尔 [rx, ry, rz, x, y, z]，单位 rad/m）
+# 启动时和复位后移动到此位置
+start_pose:
+  cartesian: [0, 0, 0, 0.2, 0, 0.35]
+  gripper: 0.0
+  speed: 0.3
+
+param_server:
+  port: 8082
+  arm_name: "Z1 机械臂"

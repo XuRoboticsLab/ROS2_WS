@@ -1,0 +1,41 @@
+# pico_z1_pico.yaml  —  Pico 发布端配置（Z1 单臂版）
+# 运行: conda activate xr_env && python pico_z1/pico_main.py --config configs/pico_z1_pico.yaml
+
+ipc:
+  # 跨机器部署：bind 0.0.0.0 监听所有网络接口
+  # 同机部署：改回 tcp://127.0.0.1:5679
+  address: "tcp://0.0.0.0:5679"
+
+hand_side: right   # 控制哪只手: "right" 或 "left"
+
+grip:
+  threshold: 0.5            # Grip 按下判定阈值（0~1）
+  double_tap_window_s: 0.4  # 双击判定时间窗口（秒）
+
+scale:
+  translation_m:  1.0   # XR 位移原始归一化（实际缩放在 arm 侧调节）
+  rotation_rad:   1.0   # XR 旋转原始归一化
+  max_delta_pos_m: 0.3  # 单步最大位移截断（防抖）
+
+deadzone:
+  pos_m:   0.008  # 平移死区（m），过滤 tracker 噪声
+  rot_rad: 0.03   # 旋转死区（rad ≈ 1.7°）
+
+filter:
+  alpha: 0.08   # EMA 滤波系数，越小越平滑但延迟越大
+
+# XR 坐标系 → Z1 机械臂坐标系映射矩阵
+# 行向量：机械臂 X/Y/Z 轴对应 XR 的哪个轴
+# 默认：机械臂 X ← XR -Z（XR 向前 = 机械臂向前），机械臂 Y ← XR -X，机械臂 Z ← XR Y
+coord_mapping:
+  pos: [[ 0,  0, -1],
+        [-1,  0,  0],
+        [ 0,  1,  0]]
+  rot: [[ 0,  0, -1],
+        [-1,  0,  0],
+        [ 0,  1,  0]]
+  pos_sign: [1, 1, 1]
+  rot_sign: [1, 1, 1]
+
+joystick:
+  axis_threshold: 0.15   # 摇杆死区
