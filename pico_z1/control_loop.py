@@ -1,97 +1,54 @@
 # ─────────────────────────────────────────────
-#  control_loop.py  —  Z1 机械臂 Pico 控制循环
+#  control_loop.py  —  Z1 Pico 控制循环（MoveL 版）
 #
-#  策略：P 控制器 + 笛卡尔速度指令
-#    1. 从 SharedState 取最新 Pico 偏移 → 更新目标位姿
-#    2. 正运动学获取当前末端位姿
-#    3. 计算位置 / 旋转误差
-#    4. 误差 × Kp 得到速度，clamp 到最大速度
-#    5. 归一化方向 + 速度标量 → cartesianCtrlCmd
-#    6. 夹爪：trigger 阈值映射到开合方向
+#  策略：setWait(False) + 持续 MoveL
+#    1. 消费 Pico 偏移 → 更新目标位姿（4x4 矩阵）
+#    2. homoToPosture 转换为 [rx,ry,rz,x,y,z]
+#    3. arm.MoveL(posture, gripper, speed)  —— 非阻塞
+#    SDK 内部负责 IK / 关节限位 / 奇异处理
 # ─────────────────────────────────────────────
 
 import time
 import threading
-from typing import Optional
 import numpy as np
-from scipy.spatial.transform import Rotation
 
 from z1_config import (
-    CONTROL_RATE, START_CARTESIAN, START_GRIPPER, START_SPEED,
+    CONTROL_RATE,
+    START_CARTESIAN, START_GRIPPER, START_SPEED,
+    MOVEL_SPEED,
+    GRIPPER_OPEN_POS, GRIPPER_CLOSE_POS,
 )
 from shared_state import SharedState
 
-# 速度门控：误差低于此值时停止驱动，避免抖动
-_MIN_LINEAR_THRESH  = 0.001   # 1 mm
-_MIN_ANGULAR_THRESH = 0.005   # ~0.3°
 
-
-def _gripper_dir(gripper_pos: Optional[float]) -> float:
-    """将 pico trigger 映射的夹爪位置 [0, 2] 转换为速度方向。
-    trigger 完全按下(0) → 闭合(-1), 完全松开(2) → 张开(+1), 中间 → 保持(0)。
+def _pico_gripper_to_movel(gripper_val):
+    """pico gripper_pos [0,2] → MoveL gripper 参数 [CLOSE, OPEN]。
+    pico: 0=trigger 按下(闭合), 2=trigger 松开(张开)
     """
-    if gripper_pos is None:
-        return 0.0
-    if gripper_pos < 0.5:
-        return -1.0
-    if gripper_pos > 1.5:
-        return 1.0
-    return 0.0
-
-
-def _compute_cmd(state: SharedState,
-                 current_pos: np.ndarray,
-                 current_rot: np.ndarray,
-                 gripper_pos: Optional[float]):
-    """计算 cartesianCtrlCmd 的 cmd、ang_speed、lin_speed。"""
-    target_pos, target_rot = state.get_target()
-
-    # 线速度
-    lin_err  = target_pos - current_pos
-    lin_norm = np.linalg.norm(lin_err)
-    if lin_norm > _MIN_LINEAR_THRESH:
-        lin_speed = min(lin_norm * state.kp_linear, state.max_linear_vel)
-        lin_dir   = lin_err / lin_norm
-    else:
-        lin_speed = 0.0
-        lin_dir   = np.zeros(3)
-
-    # 角速度
-    rot_err  = (Rotation.from_matrix(target_rot)
-                * Rotation.from_matrix(current_rot).inv()).as_rotvec()
-    ang_norm = np.linalg.norm(rot_err)
-    if ang_norm > _MIN_ANGULAR_THRESH:
-        ang_speed = min(ang_norm * state.kp_angular, state.max_angular_vel)
-        rot_dir   = rot_err / ang_norm
-    else:
-        ang_speed = 0.0
-        rot_dir   = np.zeros(3)
-
-    g_dir = _gripper_dir(gripper_pos)
-    cmd   = list(rot_dir) + list(lin_dir) + [g_dir]
-    return cmd, ang_speed, lin_speed
+    if gripper_val is None:
+        return None
+    t = min(1.0, max(0.0, gripper_val / 2.0))   # 0=闭合, 1=张开
+    return GRIPPER_CLOSE_POS + t * (GRIPPER_OPEN_POS - GRIPPER_CLOSE_POS)
 
 
 def _goto_start(arm, armState):
-    """移动到预设起始位置（MoveL），并重新进入笛卡尔跟踪模式。"""
+    arm.setWait(True)
     arm.backToStart()
     arm.labelRun("forward")
     arm.startTrack(armState.CARTESIAN)
     arm.MoveL(START_CARTESIAN, START_GRIPPER, START_SPEED)
+    arm.setWait(False)
 
 
-def control_loop(arm, armState, model, state: SharedState, stop_event: threading.Event):
+def control_loop(arm, armState, homoToPosture, state: SharedState,
+                 stop_event: threading.Event):
     """
     主控制循环，在独立线程中运行。
-
-    优先级：
-      1. 复位（backToStart → 重新进入 CARTESIAN 模式）
-      2. 消费 Pico twist → 更新 target
-      3. 精细控制（摇杆）→ 叠加 target
-      4. Watchdog 超时 或 未校准 → 发零速保持
-      5. P 控制器 → cartesianCtrlCmd
+    进入前已调用 startTrack(CARTESIAN) + setWait(False)。
     """
-    interval = 1.0 / CONTROL_RATE
+    interval         = 1.0 / CONTROL_RATE
+    last_gripper_pos = GRIPPER_OPEN_POS
+
     print(f"[Control] 控制循环启动，频率 {CONTROL_RATE:.0f} Hz")
     print("[Control] 请按 Pico Grip 键激活并校准")
 
@@ -107,44 +64,35 @@ def control_loop(arm, armState, model, state: SharedState, stop_event: threading
             print("[Control] 复位中...")
             _goto_start(arm, armState)
             state.clear_calibration()
+            last_gripper_pos = GRIPPER_OPEN_POS
             print("[Control] 复位完成，请重新 Grip 校准")
             time.sleep(max(0.0, interval - (time.time() - t0)))
             continue
 
-        # 2. 正运动学获取当前位姿
-        try:
-            fk = model.forwardKinematics(np.array(arm.q), 6)
-            current_pos = np.array(fk[:3, 3], dtype=float)
-            current_rot = np.array(fk[:3, :3], dtype=float)
-            state.set_fk(current_pos, current_rot)
-        except Exception as e:
-            print(f"[Control] FK 失败: {e}")
-            time.sleep(interval)
-            continue
-
-        # 3. 消费 Pico twist
+        # 2. 消费 Pico twist → 更新目标位姿
         twist = state.pop_twist()
         if twist is not None:
             state.set_target_from_offset(twist[0], twist[1])
 
-        # 4. 精细控制（摇杆）
+        # 3. 摇杆精细控制
         fine = state.pop_fine_delta()
         if fine is not None:
             state.apply_fine_delta_to_target(fine)
 
-        # 5. 夹爪指令
-        gripper_pos = state.pop_gripper()
+        # 4. 夹爪
+        raw_gripper = state.pop_gripper()
+        converted   = _pico_gripper_to_movel(raw_gripper)
+        if converted is not None:
+            last_gripper_pos = converted
 
-        # 6. 未校准或 watchdog 超时 → 发零速
+        # 5. 未校准 / watchdog 超时 → 跳过本次 MoveL，保持原位
         if not state.is_calibrated() or not state.is_watchdog_ok():
-            arm.cartesianCtrlCmd([0, 0, 0, 0, 0, 0, 0], 0.0, 0.0)
             time.sleep(max(0.0, interval - (time.time() - t0)))
             continue
 
-        # 7. P 控制器 → 速度指令
-        cmd, ang_speed, lin_speed = _compute_cmd(
-            state, current_pos, current_rot, gripper_pos
-        )
-        arm.cartesianCtrlCmd(cmd, ang_speed, lin_speed)
+        # 6. 目标矩阵 → posture → MoveL
+        T_target        = state.get_target_matrix()
+        target_posture  = homoToPosture(T_target)
+        arm.MoveL(target_posture, last_gripper_pos, MOVEL_SPEED)
 
         time.sleep(max(0.0, interval - (time.time() - t0)))

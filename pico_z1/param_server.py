@@ -1,18 +1,11 @@
 # ─────────────────────────────────────────────
-#  param_server.py  —  Flask 参数实时调节服务器（Z1 简化版）
-#
-#  仅保留核心可调参数，无运动模式/预制动作/位姿保存。
+#  param_server.py  —  Flask 参数实时调节服务器（Z1 MoveL 简化版）
 # ─────────────────────────────────────────────
 
 import logging
 import threading
 
-from z1_config import (
-    TRANSLATION_SCALE, ROTATION_SCALE,
-    KP_LINEAR, KP_ANGULAR,
-    MAX_LINEAR_VEL, MAX_ANGULAR_VEL,
-    FINE_SCALE,
-)
+from z1_config import TRANSLATION_SCALE, ROTATION_SCALE, FINE_SCALE
 
 _HTML = """\
 <!DOCTYPE html>
@@ -25,7 +18,7 @@ _HTML = """\
 :root{--accent:#007AFF;--bg:#F5F5F7;--card:#FFF;--text:#1D1D1F;--muted:#86868B;--border:#D2D2D7}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-     padding:28px 20px;max-width:620px;margin:0 auto}
+     padding:28px 20px;max-width:520px;margin:0 auto}
 h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
 .sub{color:var(--muted);font-size:.88rem;margin-bottom:24px}
 .card{background:var(--card);border-radius:16px;padding:20px 20px 4px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px}
@@ -42,7 +35,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 .rlabels{display:flex;justify-content:space-between;color:var(--muted);font-size:.74rem}
 .footer{display:flex;gap:12px;align-items:center;margin-top:8px}
 .reset-btn{flex:1;padding:13px;background:#F5F5F7;border:1.5px solid var(--border);
-  border-radius:10px;font-size:.93rem;font-weight:500;cursor:pointer;color:var(--text);transition:background .1s}
+  border-radius:10px;font-size:.93rem;font-weight:500;cursor:pointer;color:var(--text)}
 .reset-btn:hover{background:#E8E8EA}
 #st{color:var(--muted);font-size:.8rem;min-height:18px}
 </style>
@@ -52,7 +45,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 <p class="sub">参数实时调节 · 拖动滑块即时生效</p>
 
 <div class="card">
-  <div class="sec">位姿缩放</div>
+  <div class="sec">Pico → 机械臂缩放</div>
   <div class="param">
     <div class="prow">
       <span class="plabel">位移缩放 <code>translation_m</code></span>
@@ -68,42 +61,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     </div>
     <input type="range" id="s-ro" min="0.01" max="5.0" step="0.01" value="{{ ro_def }}">
     <div class="rlabels"><span>0.01</span><span>5.0</span></div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="sec">跟踪速度</div>
-  <div class="param">
-    <div class="prow">
-      <span class="plabel">线速度 Kp <code>kp_linear</code></span>
-      <span class="pval" id="v-kl">{{ "%.2f"|format(kl_def) }}</span>
-    </div>
-    <input type="range" id="s-kl" min="0.1" max="10.0" step="0.1" value="{{ kl_def }}">
-    <div class="rlabels"><span>0.1</span><span>10.0</span></div>
-  </div>
-  <div class="param">
-    <div class="prow">
-      <span class="plabel">角速度 Kp <code>kp_angular</code></span>
-      <span class="pval" id="v-ka">{{ "%.2f"|format(ka_def) }}</span>
-    </div>
-    <input type="range" id="s-ka" min="0.1" max="10.0" step="0.1" value="{{ ka_def }}">
-    <div class="rlabels"><span>0.1</span><span>10.0</span></div>
-  </div>
-  <div class="param">
-    <div class="prow">
-      <span class="plabel">最大线速度 <code>max_linear_vel</code></span>
-      <span class="pval" id="v-ml">{{ "%.2f"|format(ml_def) }} m/s</span>
-    </div>
-    <input type="range" id="s-ml" min="0.01" max="1.0" step="0.01" value="{{ ml_def }}">
-    <div class="rlabels"><span>0.01</span><span>1.0 m/s</span></div>
-  </div>
-  <div class="param">
-    <div class="prow">
-      <span class="plabel">最大角速度 <code>max_angular_vel</code></span>
-      <span class="pval" id="v-ma">{{ "%.2f"|format(ma_def) }} rad/s</span>
-    </div>
-    <input type="range" id="s-ma" min="0.01" max="2.0" step="0.01" value="{{ ma_def }}">
-    <div class="rlabels"><span>0.01</span><span>2.0 rad/s</span></div>
   </div>
 </div>
 
@@ -125,11 +82,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 </div>
 
 <script>
-const DEF  = {tr:{{ tr_def }},ro:{{ ro_def }},kl:{{ kl_def }},ka:{{ ka_def }},ml:{{ ml_def }},ma:{{ ma_def }},fs:{{ fs_def }}};
-const IDS  = ['tr','ro','kl','ka','ml','ma','fs'];
-const KEYS = {tr:'translation_m',ro:'rotation_rad',kl:'kp_linear',ka:'kp_angular',ml:'max_linear_vel',ma:'max_angular_vel',fs:'fine_scale'};
-const UNIT = {tr:'',ro:'',kl:'',ka:'',ml:' m/s',ma:' rad/s',fs:' m/s'};
-const FMT  = (v,id) => (['tr','ro'].includes(id) ? v.toFixed(3) : v.toFixed(2));
+const DEF  = {tr:{{ tr_def }},ro:{{ ro_def }},fs:{{ fs_def }}};
+const IDS  = ['tr','ro','fs'];
+const KEYS = {tr:'translation_m',ro:'rotation_rad',fs:'fine_scale'};
+const UNIT = {tr:'',ro:'',fs:' m/s'};
+const FMT  = v => v.toFixed(3);
 
 function track(el){
   const p=(el.value-el.min)/(el.max-el.min)*100;
@@ -150,7 +107,7 @@ IDS.forEach(id=>{
   el.addEventListener('input',()=>{
     const v=parseFloat(el.value);
     track(el);
-    document.getElementById('v-'+id).textContent=FMT(v,id)+UNIT[id];
+    document.getElementById('v-'+id).textContent=FMT(v)+UNIT[id];
     send({[KEYS[id]]:v});
   });
 });
@@ -159,7 +116,7 @@ fetch('/params').then(r=>r.json()).then(d=>{
   IDS.forEach(id=>{
     const key=KEYS[id],el=document.getElementById('s-'+id);
     if(d[key]!==undefined){el.value=d[key];track(el);
-      document.getElementById('v-'+id).textContent=FMT(d[key],id)+UNIT[id];}
+      document.getElementById('v-'+id).textContent=FMT(d[key])+UNIT[id];}
   });
 }).catch(()=>{});
 
@@ -167,10 +124,9 @@ function resetAll(){
   IDS.forEach(id=>{
     const el=document.getElementById('s-'+id);
     el.value=DEF[id];track(el);
-    document.getElementById('v-'+id).textContent=FMT(DEF[id],id)+UNIT[id];
+    document.getElementById('v-'+id).textContent=FMT(DEF[id])+UNIT[id];
   });
-  send({translation_m:DEF.tr,rotation_rad:DEF.ro,kp_linear:DEF.kl,kp_angular:DEF.ka,
-        max_linear_vel:DEF.ml,max_angular_vel:DEF.ma,fine_scale:DEF.fs});
+  send({translation_m:DEF.tr,rotation_rad:DEF.ro,fine_scale:DEF.fs});
 }
 </script>
 </body>
@@ -179,7 +135,6 @@ function resetAll(){
 
 
 def start(state, port: int, arm_name: str):
-    """在 daemon 线程中启动参数调节服务器。"""
     try:
         from flask import Flask, request, jsonify, render_template_string
     except ImportError:
@@ -196,40 +151,27 @@ def start(state, port: int, arm_name: str):
             arm_name=arm_name,
             tr_def=TRANSLATION_SCALE,
             ro_def=ROTATION_SCALE,
-            kl_def=KP_LINEAR,
-            ka_def=KP_ANGULAR,
-            ml_def=MAX_LINEAR_VEL,
-            ma_def=MAX_ANGULAR_VEL,
             fs_def=FINE_SCALE,
         )
 
     @app.route("/params", methods=["GET"])
     def get_params():
         return jsonify({
-            "translation_m":   state.translation_scale,
-            "rotation_rad":    state.rotation_scale,
-            "kp_linear":       state.kp_linear,
-            "kp_angular":      state.kp_angular,
-            "max_linear_vel":  state.max_linear_vel,
-            "max_angular_vel": state.max_angular_vel,
-            "fine_scale":      state.fine_scale,
+            "translation_m": state.translation_scale,
+            "rotation_rad":  state.rotation_scale,
+            "fine_scale":    state.fine_scale,
         })
 
     @app.route("/params", methods=["POST"])
     def update_params():
         data = request.get_json(force=True) or {}
-        if "translation_m"   in data: state.translation_scale = float(data["translation_m"])
-        if "rotation_rad"    in data: state.rotation_scale    = float(data["rotation_rad"])
-        if "kp_linear"       in data: state.kp_linear         = float(data["kp_linear"])
-        if "kp_angular"      in data: state.kp_angular        = float(data["kp_angular"])
-        if "max_linear_vel"  in data: state.max_linear_vel    = float(data["max_linear_vel"])
-        if "max_angular_vel" in data: state.max_angular_vel   = float(data["max_angular_vel"])
-        if "fine_scale"      in data: state.fine_scale        = float(data["fine_scale"])
+        if "translation_m" in data: state.translation_scale = float(data["translation_m"])
+        if "rotation_rad"  in data: state.rotation_scale    = float(data["rotation_rad"])
+        if "fine_scale"    in data: state.fine_scale        = float(data["fine_scale"])
         return jsonify({"ok": True})
 
     threading.Thread(
         target=lambda: app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False),
-        daemon=True,
-        name="ParamServer",
+        daemon=True, name="ParamServer",
     ).start()
     print(f"[ParamServer] 参数调节页面: http://<server-ip>:{port}")

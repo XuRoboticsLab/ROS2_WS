@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ─────────────────────────────────────────────
-#  z1_main.py  —  Z1 机械臂控制端入口（ZMQ 版）
+#  z1_main.py  —  Z1 机械臂控制端入口（MoveL 版）
 #
 #  运行: python z1_main.py --config <arm_config.yaml>
 #  依赖: unitree_arm_interface (Z1 SDK), pyzmq, scipy, flask
@@ -32,9 +32,10 @@ import param_server
 # Z1 SDK
 sys.path.append(os.path.abspath(LIB_PATH))
 import unitree_arm_interface
+from unitree_arm_interface import homoToPosture
 
 
-def _make_callbacks(state: SharedState) -> dict:
+def _make_callbacks(state: SharedState, arm, model) -> dict:
     def on_cmd(msg):
         l, a = msg["linear"], msg["angular"]
         state.push_twist([l["x"], l["y"], l["z"]],
@@ -50,8 +51,9 @@ def _make_callbacks(state: SharedState) -> dict:
 
     def on_init(msg):
         if msg["data"]:
-            fk_pos, fk_rot = state.get_fk()
-            state.set_calibration_pose(fk_pos, fk_rot)
+            # 以当前末端 FK 作为校准基准
+            T_fk = model.forwardKinematics(np.array(arm.q), 6)
+            state.set_calibration(np.array(T_fk))
 
     def on_fine_cmd(msg):
         l = msg["linear"]
@@ -87,35 +89,33 @@ def init_arm():
     arm.MoveL(START_CARTESIAN, START_GRIPPER, START_SPEED)
     print("[Init] ✓ 已到达初始位置")
 
+    # 后续 MoveL 非阻塞，控制循环持续发送目标
+    arm.setWait(False)
+
     return arm, armState, model
 
 
 def main():
     print("=" * 60)
-    print(f"Z1 Pico 控制节点 ({ARM_NAME}, ZMQ 版)")
+    print(f"Z1 Pico 控制节点 ({ARM_NAME}, MoveL 版)")
     print("=" * 60)
 
     arm, armState, model = init_arm()
     state = SharedState()
 
-    # 用当前 FK 初始化 target（尚未校准，仅作初始化）
-    fk = model.forwardKinematics(np.array(arm.q), 6)
-    state.set_fk(np.array(fk[:3, 3]), np.array(fk[:3, :3]))
-    print(f"[Init] 初始末端位置: {np.array(fk[:3, 3]).round(4)}")
+    print(f"[Init] 初始末端位置: {homoToPosture(model.forwardKinematics(np.array(arm.q), 6)).round(4)}")
     print("[Init] 请按 Pico Grip 键完成校准，之后即可开始控制")
 
-    # 参数调节服务器
     param_server.start(state, port=PARAM_SERVER_PORT, arm_name=ARM_NAME)
 
-    # ZMQ 订阅
     print(f"\n[IPC] 连接 {IPC_ADDRESS}，订阅 {ARM_SIDE}:* ...")
-    subscriber = ZmqSubscriber(ARM_SIDE, IPC_ADDRESS, _make_callbacks(state))
+    subscriber = ZmqSubscriber(ARM_SIDE, IPC_ADDRESS,
+                               _make_callbacks(state, arm, model))
 
-    # 控制循环线程
     stop_event  = threading.Event()
     ctrl_thread = threading.Thread(
         target=control_loop,
-        args=(arm, armState, model, state, stop_event),
+        args=(arm, armState, homoToPosture, state, stop_event),
         daemon=True, name="ControlLoop",
     )
     ctrl_thread.start()
@@ -132,6 +132,7 @@ def main():
         subscriber.stop()
         print("[Main] 返回安全位置...")
         try:
+            arm.setWait(True)
             arm.backToStart()
             arm.loopOff()
         except Exception as e:

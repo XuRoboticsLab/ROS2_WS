@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────
-#  shared_state.py  —  线程安全的共享状态（Z1 版）
+#  shared_state.py  —  线程安全的共享状态（Z1 MoveL 版）
 # ─────────────────────────────────────────────
 
 import time
@@ -11,8 +11,6 @@ from scipy.spatial.transform import Rotation
 from z1_config import (
     TRANSLATION_SCALE, ROTATION_SCALE,
     WATCHDOG_TIMEOUT, FINE_SCALE,
-    KP_LINEAR, KP_ANGULAR,
-    MAX_LINEAR_VEL, MAX_ANGULAR_VEL,
 )
 
 
@@ -20,22 +18,16 @@ class SharedState:
     def __init__(self):
         self._lock = threading.Lock()
 
-        # 校准基准（Grip 按下时记录机械臂当前位姿）
-        self.calibration_position: Optional[np.ndarray] = None
-        self.calibration_rotation: Optional[np.ndarray] = None
+        # 校准基准（Grip 按下时机械臂当前末端的 4x4 齐次矩阵）
+        self._T_cal: Optional[np.ndarray] = None
 
-        # 目标位姿（calibration + Pico 偏移）
-        self.target_position = np.zeros(3)
-        self.target_rotation = np.eye(3, dtype=float)
-
-        # 当前 FK 位姿（由控制循环更新）
-        self.fk_position = np.zeros(3)
-        self.fk_rotation = np.eye(3, dtype=float)
+        # 目标位姿（4x4 齐次矩阵，calibration + Pico 偏移）
+        self._T_target: Optional[np.ndarray] = None
 
         # 待处理指令
-        self._pending_twist      = None   # (linear_xyz, angular_xyz)
-        self._pending_gripper    = None   # float [0, 2]，由 pico trigger 映射
-        self._pending_fine_delta = None   # (dx, dy)，摇杆精细控制
+        self._pending_twist:      Optional[tuple]      = None
+        self._pending_gripper:    Optional[float]      = None
+        self._pending_fine_delta: Optional[np.ndarray] = None
 
         self.reset_requested = False
         self.last_cmd_time   = 0.0
@@ -43,33 +35,28 @@ class SharedState:
         # 可调参数（param_server 实时修改）
         self.translation_scale: float = TRANSLATION_SCALE
         self.rotation_scale:    float = ROTATION_SCALE
-        self.kp_linear:         float = KP_LINEAR
-        self.kp_angular:        float = KP_ANGULAR
-        self.max_linear_vel:    float = MAX_LINEAR_VEL
-        self.max_angular_vel:   float = MAX_ANGULAR_VEL
         self.fine_scale:        float = FINE_SCALE
 
     # ── 校准 ──────────────────────────────────
 
-    def set_calibration_pose(self, pos: np.ndarray, rot: np.ndarray):
+    def set_calibration(self, T_fk: np.ndarray):
+        """以当前 FK 矩阵作为校准基准。"""
         with self._lock:
-            self.calibration_position = np.array(pos, dtype=float)
-            self.calibration_rotation = np.array(rot, dtype=float)
-            self.target_position      = self.calibration_position.copy()
-            self.target_rotation      = self.calibration_rotation.copy()
-            self._pending_twist       = None
+            self._T_cal    = T_fk.copy()
+            self._T_target = T_fk.copy()
+            self._pending_twist = None
         print("[State] 校准基准已更新")
 
     def clear_calibration(self):
         with self._lock:
-            self.calibration_position = None
-            self.calibration_rotation = None
-            self._pending_twist       = None
+            self._T_cal    = None
+            self._T_target = None
+            self._pending_twist = None
         print("[State] 校准已清除，请重新 Grip 校准")
 
     def is_calibrated(self) -> bool:
         with self._lock:
-            return self.calibration_position is not None
+            return self._T_cal is not None
 
     # ── Twist（Pico 位姿偏移）─────────────────
 
@@ -78,35 +65,26 @@ class SharedState:
             self._pending_twist = (np.array(linear_xyz), np.array(angular_xyz))
             self.last_cmd_time  = time.time()
 
-    def pop_twist(self):
+    def pop_twist(self) -> Optional[tuple]:
         with self._lock:
             t = self._pending_twist
             self._pending_twist = None
         return t
 
     def set_target_from_offset(self, linear_xyz, angular_xyz):
-        """将 Pico 的偏移量（相对校准基准）转换为目标位姿。"""
-        if self.calibration_position is None:
-            return
-        pos_offset = np.array(linear_xyz) * self.translation_scale
-        rot_offset = Rotation.from_rotvec(
-            np.array(angular_xyz) * self.rotation_scale
-        ).as_matrix()
+        """calibration_T + Pico 偏移 → 新目标矩阵。"""
         with self._lock:
-            self.target_position = self.calibration_position + pos_offset
-            self.target_rotation = rot_offset @ self.calibration_rotation
+            if self._T_cal is None:
+                return
+            pos_offset = np.array(linear_xyz) * self.translation_scale
+            rot_offset = Rotation.from_rotvec(
+                np.array(angular_xyz) * self.rotation_scale
+            ).as_matrix()
 
-    # ── 夹爪 ──────────────────────────────────
-
-    def push_gripper(self, pos: float):
-        with self._lock:
-            self._pending_gripper = float(pos)
-
-    def pop_gripper(self) -> Optional[float]:
-        with self._lock:
-            g = self._pending_gripper
-            self._pending_gripper = None
-        return g
+            T = self._T_cal.copy()
+            T[:3, 3]  = self._T_cal[:3, 3] + pos_offset
+            T[:3, :3] = rot_offset @ self._T_cal[:3, :3]
+            self._T_target = T
 
     # ── 摇杆精细控制 ──────────────────────────
 
@@ -122,30 +100,31 @@ class SharedState:
         return d
 
     def apply_fine_delta_to_target(self, axis_xy: np.ndarray):
-        """将摇杆 xy 作为世界坐标系 x/y 平动增量叠加到 target。"""
-        if self.calibration_position is None:
-            return
-        step = self.fine_scale / 50.0   # 假设 50 Hz，将 m/s 转换为单步
+        """摇杆 xy → 世界坐标系 x/y 平动叠加到 target。"""
+        step = self.fine_scale / 50.0
         with self._lock:
-            self.target_position[0] += axis_xy[1] * step
-            self.target_position[1] -= axis_xy[0] * step
+            if self._T_target is None:
+                return
+            self._T_target[0, 3] += axis_xy[1] * step
+            self._T_target[1, 3] -= axis_xy[0] * step
 
-    # ── FK 状态 ────────────────────────────────
+    # ── 夹爪 ──────────────────────────────────
 
-    def set_fk(self, pos: np.ndarray, rot: np.ndarray):
+    def push_gripper(self, pos: float):
         with self._lock:
-            self.fk_position = np.array(pos, dtype=float)
-            self.fk_rotation = np.array(rot, dtype=float)
+            self._pending_gripper = float(pos)
 
-    def get_fk(self):
+    def pop_gripper(self) -> Optional[float]:
         with self._lock:
-            return self.fk_position.copy(), self.fk_rotation.copy()
+            g = self._pending_gripper
+            self._pending_gripper = None
+        return g
 
-    # ── 目标 ──────────────────────────────────
+    # ── 目标矩阵 ──────────────────────────────
 
-    def get_target(self):
+    def get_target_matrix(self) -> np.ndarray:
         with self._lock:
-            return self.target_position.copy(), self.target_rotation.copy()
+            return self._T_target.copy()
 
     # ── Watchdog ──────────────────────────────
 

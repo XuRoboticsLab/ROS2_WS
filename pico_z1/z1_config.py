@@ -14,7 +14,7 @@ with open(_YAML_PATH, "r") as f:
 
 # ── IPC ───────────────────────────────────────
 IPC_ADDRESS = str(_cfg["ipc"]["address"])
-ARM_SIDE    = str(_cfg["ipc"]["arm_side"])   # "right" 或 "left"，与 pico_main 保持一致
+ARM_SIDE    = str(_cfg["ipc"]["arm_side"])
 
 # ── Z1 SDK ────────────────────────────────────
 LIB_PATH    = str(_cfg["z1"]["lib_path"])
@@ -24,23 +24,24 @@ HAS_GRIPPER = bool(_cfg["z1"].get("has_gripper", True))
 CONTROL_RATE     = float(_cfg["control"]["rate_hz"])
 WATCHDOG_TIMEOUT = float(_cfg["control"]["watchdog_timeout_s"])
 
-# ── 位置跟踪 P 控制器 ────────────────────────
-KP_LINEAR   = float(_cfg["tracking"]["kp_linear"])
-KP_ANGULAR  = float(_cfg["tracking"]["kp_angular"])
-MAX_LINEAR_VEL  = float(_cfg["tracking"]["max_linear_vel"])
-MAX_ANGULAR_VEL = float(_cfg["tracking"]["max_angular_vel"])
+# ── MoveL 速度 ────────────────────────────────
+MOVEL_SPEED = float(_cfg["control"]["movel_speed"])
 
-# ── Pico 偏移缩放（用户可在 param_server 实时调节）──
+# ── Pico 偏移缩放（param_server 可实时调节）──
 TRANSLATION_SCALE = float(_cfg["scale"]["translation_m"])
 ROTATION_SCALE    = float(_cfg["scale"]["rotation_rad"])
 
-# ── 精细控制（摇杆）─────────────────────────
+# ── 摇杆精细控制 ─────────────────────────────
 FINE_SCALE = float(_cfg.get("fine_control", {}).get("scale_m_per_s", 0.05))
 
 # ── 初始位置（笛卡尔 [rx,ry,rz,x,y,z]）──────
 START_CARTESIAN = list(_cfg["start_pose"]["cartesian"])
 START_GRIPPER   = float(_cfg["start_pose"].get("gripper", 0.0))
 START_SPEED     = float(_cfg["start_pose"].get("speed", 0.3))
+
+# ── 夹爪 ──────────────────────────────────────
+GRIPPER_OPEN_POS  = float(_cfg.get("gripper", {}).get("open_pos",  0.0))
+GRIPPER_CLOSE_POS = float(_cfg.get("gripper", {}).get("close_pos", -1.0))
 
 # ── 参数服务器 ────────────────────────────────
 PARAM_SERVER_PORT = int(_cfg.get("param_server", {}).get("port", 8082))
