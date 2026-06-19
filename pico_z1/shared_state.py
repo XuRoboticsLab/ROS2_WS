@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation
 
 from z1_config import (
     TRANSLATION_SCALE, ROTATION_SCALE,
-    WATCHDOG_TIMEOUT, FINE_SCALE,
+    WATCHDOG_TIMEOUT, FINE_SCALE, CONTROL_RATE,
 )
 
 
@@ -101,7 +101,7 @@ class SharedState:
 
     def apply_fine_delta_to_target(self, axis_xy: np.ndarray):
         """摇杆 xy → 世界坐标系 x/y 平动叠加到 target。"""
-        step = self.fine_scale / 50.0
+        step = self.fine_scale / CONTROL_RATE
         with self._lock:
             if self._T_target is None:
                 return

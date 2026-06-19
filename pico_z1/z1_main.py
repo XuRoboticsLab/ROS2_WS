@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ─────────────────────────────────────────────
-#  z1_main.py  —  Z1 机械臂控制端入口（MoveL 版）
+#  z1_main.py  —  Z1 机械臂控制端入口（IK + LOWCMD 版）
 #
 #  运行: python z1_main.py --config <arm_config.yaml>
 #  依赖: unitree_arm_interface (Z1 SDK), pyzmq, scipy, flask
@@ -32,7 +32,6 @@ import param_server
 # Z1 SDK
 sys.path.append(os.path.abspath(LIB_PATH))
 import unitree_arm_interface
-from unitree_arm_interface import homoToPosture
 
 
 def _make_callbacks(state: SharedState, arm, model) -> dict:
@@ -51,7 +50,7 @@ def _make_callbacks(state: SharedState, arm, model) -> dict:
 
     def on_init(msg):
         if msg["data"]:
-            # 以当前末端 FK 作为校准基准
+            # 以当前末端 FK 矩阵作为校准基准
             T_fk = model.forwardKinematics(np.array(arm.q), 6)
             state.set_calibration(np.array(T_fk))
 
@@ -89,21 +88,24 @@ def init_arm():
     arm.MoveL(START_CARTESIAN, START_GRIPPER, START_SPEED)
     print("[Init] ✓ 已到达初始位置")
 
-    # 后续 MoveL 非阻塞，控制循环持续发送目标
-    arm.setWait(False)
+    # 切换到 LOWCMD 模式，后续由控制循环负责发指令
+    arm.setFsmLowcmd()
+    print("[Init] 已切换到 LOWCMD 模式")
 
     return arm, armState, model
 
 
 def main():
     print("=" * 60)
-    print(f"Z1 Pico 控制节点 ({ARM_NAME}, MoveL 版)")
+    print(f"Z1 Pico 控制节点 ({ARM_NAME}, IK+LOWCMD 版)")
     print("=" * 60)
 
     arm, armState, model = init_arm()
     state = SharedState()
 
-    print(f"[Init] 初始末端位置: {homoToPosture(model.forwardKinematics(np.array(arm.q), 6)).round(4)}")
+    q0   = np.array(arm.q)
+    T_fk = model.forwardKinematics(q0, 6)
+    print(f"[Init] 初始末端位置 (xyz): {np.array(T_fk[:3, 3]).round(4)}")
     print("[Init] 请按 Pico Grip 键完成校准，之后即可开始控制")
 
     param_server.start(state, port=PARAM_SERVER_PORT, arm_name=ARM_NAME)
@@ -115,7 +117,7 @@ def main():
     stop_event  = threading.Event()
     ctrl_thread = threading.Thread(
         target=control_loop,
-        args=(arm, armState, homoToPosture, state, stop_event),
+        args=(arm, armState, model, state, stop_event),
         daemon=True, name="ControlLoop",
     )
     ctrl_thread.start()

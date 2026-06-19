@@ -24,8 +24,8 @@ HAS_GRIPPER = bool(_cfg["z1"].get("has_gripper", True))
 CONTROL_RATE     = float(_cfg["control"]["rate_hz"])
 WATCHDOG_TIMEOUT = float(_cfg["control"]["watchdog_timeout_s"])
 
-# ── MoveL 速度 ────────────────────────────────
-MOVEL_SPEED = float(_cfg["control"]["movel_speed"])
+# ── IK 关节步长限制 ───────────────────────────
+MAX_JOINT_STEP = float(_cfg["control"]["max_joint_step_rad"])
 
 # ── Pico 偏移缩放（param_server 可实时调节）──
 TRANSLATION_SCALE = float(_cfg["scale"]["translation_m"])
@@ -40,8 +40,10 @@ START_GRIPPER   = float(_cfg["start_pose"].get("gripper", 0.0))
 START_SPEED     = float(_cfg["start_pose"].get("speed", 0.3))
 
 # ── 夹爪 ──────────────────────────────────────
-GRIPPER_OPEN_POS  = float(_cfg.get("gripper", {}).get("open_pos",  0.0))
+GRIPPER_OPEN_POS  = float(_cfg.get("gripper", {}).get("open_pos",   0.0))
 GRIPPER_CLOSE_POS = float(_cfg.get("gripper", {}).get("close_pos", -1.0))
+GRIPPER_SPEED     = float(_cfg.get("gripper", {}).get("speed_rad_s", 2.0))
+GRIPPER_MAX_TAU   = float(_cfg.get("gripper", {}).get("max_torque",  2.0))
 
 # ── 参数服务器 ────────────────────────────────
 PARAM_SERVER_PORT = int(_cfg.get("param_server", {}).get("port", 8082))
