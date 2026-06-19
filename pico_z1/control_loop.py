@@ -12,6 +12,7 @@
 
 import time
 import threading
+from typing import Optional
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -25,7 +26,7 @@ _MIN_LINEAR_THRESH  = 0.001   # 1 mm
 _MIN_ANGULAR_THRESH = 0.005   # ~0.3°
 
 
-def _gripper_dir(gripper_pos: float | None) -> float:
+def _gripper_dir(gripper_pos: Optional[float]) -> float:
     """将 pico trigger 映射的夹爪位置 [0, 2] 转换为速度方向。
     trigger 完全按下(0) → 闭合(-1), 完全松开(2) → 张开(+1), 中间 → 保持(0)。
     """
@@ -41,7 +42,7 @@ def _gripper_dir(gripper_pos: float | None) -> float:
 def _compute_cmd(state: SharedState,
                  current_pos: np.ndarray,
                  current_rot: np.ndarray,
-                 gripper_pos: float | None):
+                 gripper_pos: Optional[float]):
     """计算 cartesianCtrlCmd 的 cmd、ang_speed、lin_speed。"""
     target_pos, target_rot = state.get_target()
 

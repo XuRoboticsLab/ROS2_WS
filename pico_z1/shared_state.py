@@ -4,6 +4,7 @@
 
 import time
 import threading
+from typing import Optional
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -20,8 +21,8 @@ class SharedState:
         self._lock = threading.Lock()
 
         # 校准基准（Grip 按下时记录机械臂当前位姿）
-        self.calibration_position: np.ndarray | None = None
-        self.calibration_rotation: np.ndarray | None = None
+        self.calibration_position: Optional[np.ndarray] = None
+        self.calibration_rotation: Optional[np.ndarray] = None
 
         # 目标位姿（calibration + Pico 偏移）
         self.target_position = np.zeros(3)
@@ -101,7 +102,7 @@ class SharedState:
         with self._lock:
             self._pending_gripper = float(pos)
 
-    def pop_gripper(self) -> float | None:
+    def pop_gripper(self) -> Optional[float]:
         with self._lock:
             g = self._pending_gripper
             self._pending_gripper = None
@@ -114,7 +115,7 @@ class SharedState:
             self._pending_fine_delta = np.array(xy[:2], dtype=float)
             self.last_cmd_time = time.time()
 
-    def pop_fine_delta(self) -> np.ndarray | None:
+    def pop_fine_delta(self) -> Optional[np.ndarray]:
         with self._lock:
             d = self._pending_fine_delta
             self._pending_fine_delta = None

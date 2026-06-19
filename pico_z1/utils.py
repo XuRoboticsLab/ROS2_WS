@@ -2,6 +2,7 @@
 #  utils.py  —  XR 位姿 → Twist 增量
 # ─────────────────────────────────────────────
 
+from typing import Optional
 import numpy as np
 from scipy.spatial.transform import Rotation
 import time
@@ -49,8 +50,8 @@ def _apply_deadzone_vec(vec: np.ndarray, threshold: float) -> np.ndarray:
 class PoseEMAFilter:
     def __init__(self, alpha: float):
         self._alpha = alpha
-        self._pos: np.ndarray | None = None
-        self._rot: Rotation | None   = None
+        self._pos: Optional[np.ndarray] = None
+        self._rot: Optional[Rotation]   = None
 
     def reset(self, pos: np.ndarray, rot_matrix: np.ndarray):
         self._pos = pos.copy()
@@ -81,8 +82,8 @@ class ArmConverter:
         self._init_rot = None
         self.is_calibrated = False
         self._filter = PoseEMAFilter(FILTER_ALPHA)
-        self._last_pos: np.ndarray | None = None
-        self._last_rotvec: np.ndarray | None = None
+        self._last_pos: Optional[np.ndarray] = None
+        self._last_rotvec: Optional[np.ndarray] = None
 
     def calibrate(self, pose_7d):
         self._init_pos, self._init_rot = _pose7d_to_pos_rot(pose_7d)
